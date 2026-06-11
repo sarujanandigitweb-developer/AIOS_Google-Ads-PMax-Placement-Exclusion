@@ -5,7 +5,7 @@ requirement_id: REQ-01
 deliverable_id: D08
 date: 2026-06-11
 last_updated: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 reviewer: Coordinator + Technical reviewer
 status: DRAFT — living document
 version: 1.0
@@ -28,7 +28,7 @@ Active risks across business, technical, AIOS-governance, evidence, and queryabi
 | R7 | Live account change without approval (scope creep into RED) | AIOS Governance | High | Low | RED gate (OI-03); this subfolder is docs-only | Coordinator |
 | R8 | Duplicate truth (rules restated divergently) | AIOS Governance | High | Low | D04 is sole canonical; others reference only | Queryability reviewer |
 | R9 | Evidence not saved → unproven completion | Evidence | High | Medium | EVIDENCE_REQUIREMENTS.md per task; Skill 08 | Owner |
-| R10 | No GitHub remote → local-only weak storage | Storage/Query | Medium | High (current) | Configure repo (OI-04); meanwhile keep all in subfolder | Coordinator |
+| R10 | ~~No GitHub remote~~ → CLOSED 2026-06-11 | Storage/Query | Medium | Low (was High) | ✅ Pushed to GitHub `main` (OI-04 resolved) | Coordinator |
 | R11 | Identity assumptions (developer/project code) wrong | Governance | Low | Medium | Flagged as assumptions; correct via DEC log | Owner |
 | R12 | Google Sheet referenced but inaccessible | External | Medium | Medium | OI-01; verify access before S3 | Owner |
 | R13 | ROI modest at ~€1000/month spend | Business | Low | — | Treat as skill investment; reusable when budget scales | PPC owner |

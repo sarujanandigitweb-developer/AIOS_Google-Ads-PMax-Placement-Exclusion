@@ -5,7 +5,7 @@ requirement_id: REQ-01
 deliverable_id: D05
 date: 2026-06-11
 last_updated: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 reviewer: Technical reviewer + Coordinator
 status: DRAFT — implementation steps are APPROVAL-GATED (RED beyond documentation)
 version: 1.0

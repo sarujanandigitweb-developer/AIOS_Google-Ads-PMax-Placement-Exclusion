@@ -3,7 +3,7 @@ document: VALIDATION_QUERIES
 project_code: gapmax
 requirement_id: REQ-01
 date: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 status: DRAFT — design, not executed against production
 related: docs/D06_VALIDATION_PLAN.md
 ---

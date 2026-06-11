@@ -3,7 +3,7 @@ document: Continuation Guide
 project_code: gapmax
 requirement_id: REQ-01
 date: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 status: VALIDATED
 aios_skill: 10_SKILL_UNKNOWN_DEVELOPER_TEST
 ---

@@ -5,7 +5,7 @@ requirement_id: REQ-01
 deliverable_id: D04
 date: 2026-06-11
 last_updated: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 reviewer: Business validator (PPC) — REQUIRED before any implementation
 status: DRAFT — authoritative within subfolder; pending business sign-off
 version: 1.0

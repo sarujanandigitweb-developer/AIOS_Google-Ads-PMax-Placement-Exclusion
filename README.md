@@ -8,13 +8,13 @@
 | **Parent domain** | Marketing / PPC — Google Ads Performance Max |
 | **Account** | ledsone.fr (LED lighting e-commerce, France) |
 | **Created** | 2026-06-11 |
-| **Owner / staff** | techclawweb (⚠ assumption — confirm assigned staff name) |
+| **Owner / staff** | sarujanan (confirmed via GitHub repo owner) |
 | **Coordinator** | Sathees (or assigned coordinator) |
 | **Technical reviewer** | Sajeesan / assigned senior dev |
 | **Queryability reviewer** | Tamil Selvan / assigned reviewer |
 | **Business validator** | Domain owner (PPC) |
 | **Status** | PLANNING COMPLETE — implementation NOT started |
-| **GitHub path** | ⚠ NOT configured (no git remote) — see [D08 Risk Register](docs/D08_RISK_REGISTER.md) |
+| **GitHub path** | https://github.com/sarujanandigitweb-developer/AIOS_Google-Ads-PMax-Placement-Exclusion (branch `main`) |
 
 ---
 

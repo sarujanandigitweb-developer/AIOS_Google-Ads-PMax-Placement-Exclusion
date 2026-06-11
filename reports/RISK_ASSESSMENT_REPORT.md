@@ -3,7 +3,7 @@ document: Risk Assessment Report
 project_code: gapmax
 requirement_id: REQ-01
 date: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 reviewer: Coordinator + Technical reviewer
 status: VALIDATED
 related: docs/D08_RISK_REGISTER.md

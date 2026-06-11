@@ -3,7 +3,7 @@ document: Queryability Review
 project_code: gapmax
 requirement_id: REQ-01
 date: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 reviewer: Queryability reviewer (Tamil Selvan / assigned)
 status: VALIDATED
 aios_skill: 09_SKILL_QUERYABILITY_FIRST + 10_SKILL_UNKNOWN_DEVELOPER_TEST

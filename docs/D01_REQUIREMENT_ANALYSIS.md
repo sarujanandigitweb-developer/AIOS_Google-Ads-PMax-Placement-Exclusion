@@ -5,7 +5,7 @@ requirement_id: REQ-01
 deliverable_id: D01
 date: 2026-06-11
 last_updated: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 reviewer: Business validator (PPC) + Queryability reviewer
 status: DRAFT — awaiting reviewer sign-off
 version: 1.0
@@ -70,7 +70,7 @@ entry point for all downstream planning (D02–D09).
 
 | Assumption | Basis | If wrong |
 |---|---|---|
-| Project code `gapmax`, REQ-01, developer `techclawweb` | Inferred from folder + email; no memory/config confirms | Rename via D09 decision; low cost |
+| Project code `gapmax`, REQ-01, developer `sarujanan` | Inferred from folder + email; no memory/config confirms | Rename via D09 decision; low cost |
 | Threshold = avg impressions/Site, raised to 500–1000 floor | Source doc + LLM-validation table | Re-tune; documented in D04 |
 | Source technical doc is the single authority | Discovery found no competing asset | Re-baseline if a Google Sheet rule differs |
 

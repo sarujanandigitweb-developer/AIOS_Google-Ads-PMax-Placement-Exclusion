@@ -3,7 +3,7 @@ document: Duplicate Truth Analysis
 project_code: gapmax
 requirement_id: REQ-01
 date: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 reviewer: Queryability reviewer
 status: VALIDATED
 related: [evidence/discovery/DISCOVERY_REPORT.md, docs/D04_BUSINESS_RULES.md]

@@ -5,7 +5,7 @@ requirement_id: REQ-01
 deliverable_id: D02
 date: 2026-06-11
 last_updated: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 reviewer: Technical reviewer (Sajeesan / assigned)
 status: DRAFT
 version: 1.0

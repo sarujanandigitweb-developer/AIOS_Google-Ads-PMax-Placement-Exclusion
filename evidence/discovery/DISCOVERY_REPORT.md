@@ -4,7 +4,7 @@ project_code: gapmax
 requirement_id: REQ-01
 deliverable_id: DISC-01
 date: 2026-06-11
-captured_by: techclawweb (Claude execution agent)
+captured_by: sarujanan (Claude execution agent)
 status: VALIDATED
 evidence_type: discovery
 ---

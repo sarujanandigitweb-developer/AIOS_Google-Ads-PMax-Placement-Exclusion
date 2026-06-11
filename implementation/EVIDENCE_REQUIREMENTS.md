@@ -3,7 +3,7 @@ document: Evidence Requirements
 project_code: gapmax
 requirement_id: REQ-01
 date: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 status: ACTIVE
 aios_skill: 08_SKILL_EVIDENCE_FIRST + 12_SKILL_STORAGE
 ---

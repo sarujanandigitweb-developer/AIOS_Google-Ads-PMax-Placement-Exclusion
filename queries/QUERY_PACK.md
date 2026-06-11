@@ -3,7 +3,7 @@ document: QUERY_PACK — filter logic
 project_code: gapmax
 requirement_id: REQ-01
 date: 2026-06-11
-author: techclawweb (Claude execution agent)
+author: sarujanan (Claude execution agent)
 status: DRAFT — design pseudocode, NOT executed against production
 source_of_truth: docs/D04_BUSINESS_RULES.md
 ---

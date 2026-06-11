@@ -1,6 +1,6 @@
 ---
 date: 2026-06-11
-developer: techclawweb
+developer: sarujanan
 project: Google Ads PMax Unrelated Placement Exclusion (ledsone.fr)
 project_code: gapmax
 requirement_id: REQ-01
@@ -8,14 +8,14 @@ deliverable_id: D01-D09 + scaffold
 phase: Planning & documentation scaffold (no production change)
 status: PARTIAL (planning COMPLETE; implementation NOT started — RED gated)
 evidence_location: ./evidence/discovery/DISCOVERY_REPORT.md
-github_path: NOT CONFIGURED (OI-04)
+github_path: https://github.com/sarujanandigitweb-developer/AIOS_Google-Ads-PMax-Placement-Exclusion (main)
 llm_queryable: YES
 unknown_developer_ready: YES
 parent_aios_candidate: YES (flagged, not promoted)
 three_am_standard: PASS
 ---
 
-# Daily Closure Report — 2026-06-11 · techclawweb · gapmax · REQ-01
+# Daily Closure Report — 2026-06-11 · sarujanan · gapmax · REQ-01
 
 > Filed under AIOS naming convention (DEC-04). Canonical copy of the day's closure.
 
