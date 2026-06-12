@@ -1,0 +1,142 @@
+[
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.tiagointer",
+    "type": "Mobile application",
+    "impr": 1,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=at.ner.solitai",
+    "type": "Mobile application",
+    "impr": 324,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "1001games.com",
+    "type": "Site",
+    "impr": 3,
+    "decision": "MONITOR",
+    "ruleTrace": "order-3:Site+kw:game+3<=500"
+  },
+  {
+    "urlKey": "quizdays.com",
+    "type": "Site",
+    "impr": 15,
+    "decision": "KEEP",
+    "ruleTrace": "order-6:Site-no-keyword"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.fcg.builda",
+    "type": "Mobile application",
+    "impr": 11,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://itunes.apple.com/us/app/id979597990",
+    "type": "Mobile application",
+    "impr": 127,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "planet.fr",
+    "type": "Site",
+    "impr": 13,
+    "decision": "KEEP",
+    "ruleTrace": "order-6:Site-no-keyword"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.pdfreader.",
+    "type": "Mobile application",
+    "impr": 1,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://itunes.apple.com/us/app/id6744995927",
+    "type": "Mobile application",
+    "impr": 16,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.snakegame.",
+    "type": "Mobile application",
+    "impr": 6,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.dicedom.di",
+    "type": "Mobile application",
+    "impr": 6,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=qrcode.barcode",
+    "type": "Mobile application",
+    "impr": 6,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.sa.hi.emoj",
+    "type": "Mobile application",
+    "impr": 11,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.hmbl.perfe",
+    "type": "Mobile application",
+    "impr": 8,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.solvus_lab",
+    "type": "Mobile application",
+    "impr": 5,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.dream.free",
+    "type": "Mobile application",
+    "impr": 5,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=game.bubblecru",
+    "type": "Mobile application",
+    "impr": 17,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.lucky.ways",
+    "type": "Mobile application",
+    "impr": 5,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.lotum.word",
+    "type": "Mobile application",
+    "impr": 16,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  },
+  {
+    "urlKey": "https://play.google.com/store/apps/details?id=com.bbg.car.wa",
+    "type": "Mobile application",
+    "impr": 8,
+    "decision": "EXCLUDE",
+    "ruleTrace": "order-1:Mobile application"
+  }
+]

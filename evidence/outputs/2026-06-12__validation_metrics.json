@@ -1,0 +1,23 @@
+{
+  "pass": true,
+  "gate": {
+    "pass": true,
+    "excludeCount": 711,
+    "withinCap": true
+  },
+  "metrics": {
+    "total": 950,
+    "keep": 210,
+    "exclude": 711,
+    "monitor": 29,
+    "threshold": 500,
+    "exclusion_cap": 65000,
+    "cap_confirmed": false,
+    "keyword_count": 40,
+    "safeguard_count": 0
+  },
+  "failed": [],
+  "pending": [
+    "V6"
+  ]
+}

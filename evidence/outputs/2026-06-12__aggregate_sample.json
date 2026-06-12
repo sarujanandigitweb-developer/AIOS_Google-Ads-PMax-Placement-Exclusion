@@ -1,0 +1,377 @@
+[
+  {
+    "placement": "msn.com",
+    "urlKey": "msn.com",
+    "type": "Site",
+    "network": "Google Display Network",
+    "impressions": 41,
+    "campaignCount": 4,
+    "campaigns": [
+      "Lampe Pmax Klarna Test 24-02-26",
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "Mobile App: Step Counter - Pedometer (Google Play), by Hitchhike Tech",
+    "urlKey": "https://play.google.com/store/apps/details?id=stepcounter.pedometer.stepstracker",
+    "type": "Mobile application",
+    "network": "Google Display Network",
+    "impressions": 401,
+    "campaignCount": 4,
+    "campaigns": [
+      "Lampe Pmax Klarna Test 24-02-26",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026",
+      "PMAX - Best selling - TR - 30 - 12 - 25"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "Mobile App: Tile Club - Match Puzzle Game (Google Play), by GamoVation",
+    "urlKey": "https://play.google.com/store/apps/details?id=com.gamovation.tileclub",
+    "type": "Mobile application",
+    "network": "Google Display Network",
+    "impressions": 328,
+    "campaignCount": 4,
+    "campaigns": [
+      "Lampe Pmax Klarna Test 24-02-26",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026",
+      "PMAX - Best selling - TR - 30 - 12 - 25"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "index.hr",
+    "urlKey": "index.hr",
+    "type": "Site",
+    "network": "Google Display Network",
+    "impressions": 243,
+    "campaignCount": 4,
+    "campaigns": [
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "Lampe Pmax Klarna Test 24-02-26",
+      "PMAX_All products_05/02/2026",
+      "TR - PMAX - Top sell - 09 - 10"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "Mobile App: Domino Legends: Classic Game (Google Play), by Bluetile",
+    "urlKey": "https://play.google.com/store/apps/details?id=com.playvalve.dominoes",
+    "type": "Mobile application",
+    "network": "Google Display Network",
+    "impressions": 181,
+    "campaignCount": 4,
+    "campaigns": [
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "Lampe Pmax Klarna Test 24-02-26",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "Mobile App: Daily Mahjong Match (Google Play), by Big Cake",
+    "urlKey": "https://play.google.com/store/apps/details?id=com.bigcake.android.mahjongmatch",
+    "type": "Mobile application",
+    "network": "Google Display Network",
+    "impressions": 596,
+    "campaignCount": 4,
+    "campaigns": [
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "Lampe Pmax Klarna Test 24-02-26",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "Mobile App: Water Sort! Color Sort Puzzle (Google Play), by Bobodoo Game",
+    "urlKey": "https://play.google.com/store/apps/details?id=water.sort.color.puzzle.offline.games",
+    "type": "Mobile application",
+    "network": "Google Display Network",
+    "impressions": 62,
+    "campaignCount": 4,
+    "campaigns": [
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "PMAX_All products_05/02/2026",
+      "Lampe Pmax Klarna Test 24-02-26",
+      "TR - PMAX - Top sell - 09 - 10"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "20minutes.fr",
+    "urlKey": "20minutes.fr",
+    "type": "Site",
+    "network": "Google Display Network",
+    "impressions": 243,
+    "campaignCount": 4,
+    "campaigns": [
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "Lampe Pmax Klarna Test 24-02-26",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "1001jeux.fr",
+    "urlKey": "1001jeux.fr",
+    "type": "Site",
+    "network": "Google Display Network",
+    "impressions": 1390,
+    "campaignCount": 4,
+    "campaigns": [
+      "Lampe Pmax Klarna Test 24-02-26",
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "purepeople.com",
+    "urlKey": "purepeople.com",
+    "type": "Site",
+    "network": "Google Display Network",
+    "impressions": 23,
+    "campaignCount": 4,
+    "campaigns": [
+      "Lampe Pmax Klarna Test 24-02-26",
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "gala.fr",
+    "urlKey": "gala.fr",
+    "type": "Site",
+    "network": "Google Display Network",
+    "impressions": 35,
+    "campaignCount": 4,
+    "campaigns": [
+      "Lampe Pmax Klarna Test 24-02-26",
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "geo.fr",
+    "urlKey": "geo.fr",
+    "type": "Site",
+    "network": "Google Display Network",
+    "impressions": 39,
+    "campaignCount": 4,
+    "campaigns": [
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026",
+      "Lampe Pmax Klarna Test 24-02-26"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "ouest-france.fr",
+    "urlKey": "ouest-france.fr",
+    "type": "Site",
+    "network": "Google Display Network",
+    "impressions": 130,
+    "campaignCount": 4,
+    "campaigns": [
+      "Lampe Pmax Klarna Test 24-02-26",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026",
+      "PMAX - Best selling - TR - 30 - 12 - 25"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "Mobile App: Jigsaw Puzzles Crown: HD Games (Google Play), by Jigsaw Puzzles Master",
+    "urlKey": "https://play.google.com/store/apps/details?id=tek.games.net.jigsawpuzzle",
+    "type": "Mobile application",
+    "network": "Google Display Network",
+    "impressions": 490,
+    "campaignCount": 4,
+    "campaigns": [
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "PMAX_All products_05/02/2026",
+      "Lampe Pmax Klarna Test 24-02-26",
+      "TR - PMAX - Top sell - 09 - 10"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  },
+  {
+    "placement": "Mobile App: Solitaire (Google Play), by Aged Studio Limited",
+    "urlKey": "https://play.google.com/store/apps/details?id=com.agedstudio.card.solitaire.klondike",
+    "type": "Mobile application",
+    "network": "Google Display Network",
+    "impressions": 77,
+    "campaignCount": 4,
+    "campaigns": [
+      "PMAX - Best selling - TR - 30 - 12 - 25",
+      "TR - PMAX - Top sell - 09 - 10",
+      "PMAX_All products_05/02/2026",
+      "Lampe Pmax Klarna Test 24-02-26"
+    ],
+    "sourceRows": 4,
+    "__summary": {
+      "rows_in": 1223,
+      "rows_out": 950,
+      "duplicate_rows_collapsed": 273,
+      "unique_placements": 950,
+      "total_impressions_before": 28619,
+      "total_impressions_after": 28619,
+      "hardError": false,
+      "aggregateWarnings": []
+    }
+  }
+]
