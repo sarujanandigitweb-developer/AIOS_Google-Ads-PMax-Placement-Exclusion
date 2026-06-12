@@ -9,10 +9,10 @@
 | **Account** | ledsone.fr (LED lighting e-commerce, France) |
 | **Created** | 2026-06-11 |
 | **Owner / staff** | sarujanan (confirmed via GitHub repo owner) |
-| **Coordinator** | Sathees (or assigned coordinator) |
-| **Technical reviewer** | Sajeesan / assigned senior dev |
-| **Queryability reviewer** | Tamil Selvan / assigned reviewer |
-| **Business validator** | Domain owner (PPC) |
+| **Coordinator** |  
+| **Technical reviewer** | 
+| **Queryability reviewer** | 
+| **Business validator** | 
 | **Status** | PLANNING COMPLETE — implementation NOT started |
 | **GitHub path** | https://github.com/sarujanandigitweb-developer/AIOS_Google-Ads-PMax-Placement-Exclusion (branch `main`) |
 
