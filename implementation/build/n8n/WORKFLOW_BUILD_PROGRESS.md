@@ -22,10 +22,18 @@ Track implementation state of every node/script so an unknown developer can resu
 | Code Node 3 — Threshold | `code_nodes/03_threshold.js` | ✅ IMPLEMENTED + offline-validated 2026-06-12 | evidence/validation/2026-06-12__threshold_tests.md |
 | Code Node 4 — Classify | `code_nodes/04_classify.js` | ✅ IMPLEMENTED + offline-validated 2026-06-12 | evidence/validation/2026-06-12__classify_tests.md |
 | Code Node 5 — Validate | `code_nodes/05_validate.js` | ✅ IMPLEMENTED + offline-validated 2026-06-12 (V6 PENDING/OI-02) | evidence/validation/2026-06-12__validate_tests.md |
-| Export edge | `../apps_script/export_placements.gs` | NOT IMPLEMENTED | — |
-| Apply edge | `../apps_script/apply_exclusions.gs` | NOT IMPLEMENTED | — |
-| Workflow wiring | (n8n canvas) | NOT STARTED | — |
-| Schedule + email | (n8n) | NOT STARTED | — |
+| Read Placements / Keywords / Config | Google Sheets (Read ×3) | DESIGNED, not built — see WORKFLOW_DESIGN §Node Config | — |
+| Write ToExclude / ToMonitor / RunLog | Google Sheets (Write ×3) | DESIGNED, not built | — |
+| Wait (manual review) | n8n Wait | DESIGNED, not built | — |
+| IF gate | n8n IF | DESIGNED, not built | — |
+| Success / Failure email | n8n Email | DESIGNED, not built | — |
+| Error Trigger flow | n8n Error Trigger | DESIGNED, not built | — |
+| Export edge | `../apps_script/export_placements.gs` | NOT IMPLEMENTED (RED, OI-03) | — |
+| Apply edge | `../apps_script/apply_exclusions.gs` | NOT IMPLEMENTED (RED, OI-03) | — |
+| Workflow wiring + schedule | (n8n canvas) | NOT STARTED | — |
+| Node config reference | `N8N_NODE_CONFIGURATION_REFERENCE.md` | DOCUMENTED | implementation/build/n8n/N8N_NODE_CONFIGURATION_REFERENCE.md |
+| Connection map | `N8N_WORKFLOW_CONNECTION_MAP.md` | DOCUMENTED | implementation/build/n8n/N8N_WORKFLOW_CONNECTION_MAP.md |
+| Deployment checklist | `N8N_DEPLOYMENT_CHECKLIST.md` | DOCUMENTED | implementation/build/n8n/N8N_DEPLOYMENT_CHECKLIST.md |
 
 ## Inputs / Outputs
 See [WORKFLOW_DESIGN.md](WORKFLOW_DESIGN.md).

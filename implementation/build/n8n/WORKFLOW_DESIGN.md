@@ -53,5 +53,14 @@ Orchestrate weekly: read placement data → aggregate → threshold → classify
 - n8n execution log → `evidence/audit/`; ToExclude/ToMonitor → `evidence/outputs/`;
   validation results → `evidence/validation/`; applied-list + schedule screenshots → `evidence/screenshots/`.
 
+---
+
+## Node configuration & wiring (see dedicated docs)
+- Detailed per-node config (Schedule Trigger, Sheets, Wait, IF, Email, Error Trigger):
+  **[N8N_NODE_CONFIGURATION_REFERENCE.md](N8N_NODE_CONFIGURATION_REFERENCE.md)** (canonical).
+- Full connection wiring: **[N8N_WORKFLOW_CONNECTION_MAP.md](N8N_WORKFLOW_CONNECTION_MAP.md)**.
+- Deployment gating: **[N8N_DEPLOYMENT_CHECKLIST.md](N8N_DEPLOYMENT_CHECKLIST.md)**.
+
 ## Status
-**NOT IMPLEMENTED.**
+**Code Nodes 1–5: COMPLETE + offline-validated (2026-06-12).** Non-code nodes DESIGNED, not built.
+Apply node is RED (OI-03). See WORKFLOW_BUILD_PROGRESS.md.
