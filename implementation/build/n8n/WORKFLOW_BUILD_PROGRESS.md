@@ -37,4 +37,6 @@ See [WORKFLOW_DESIGN.md](WORKFLOW_DESIGN.md).
 Per-component evidence recorded in the table above as built; storage per [EVIDENCE_REQUIREMENTS](../../EVIDENCE_REQUIREMENTS.md).
 
 ## Status
-**NOT IMPLEMENTED** — 0/9 components started.
+**PHASE 1 COMPLETE** — all 5 n8n Code Nodes implemented + offline-validated on real data (2026-06-12).
+Remaining (4/9): Apps Script export/apply edges (RED, OI-03), workflow wiring, schedule+email.
+Non-blocking carryovers: V6 safeguard PENDING (OI-02), V8 exclusion cap to confirm.

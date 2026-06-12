@@ -1,0 +1,74 @@
+[
+  {
+    "placement": "Mobile App: Sueca Portuguesa 2022 (Google Play), b",
+    "urlKey": "https://play.google.com/store/apps/details?id=com.tiagointer",
+    "type": "Mobile application",
+    "impressions": 1
+  },
+  {
+    "placement": "Mobile App: Solitaire - Classic Card Games (Google",
+    "urlKey": "https://play.google.com/store/apps/details?id=at.ner.solitai",
+    "type": "Mobile application",
+    "impressions": 255
+  },
+  {
+    "placement": "1001games.com",
+    "urlKey": "1001games.com",
+    "type": "Site",
+    "impressions": 3
+  },
+  {
+    "placement": "quizdays.com",
+    "urlKey": "quizdays.com",
+    "type": "Site",
+    "impressions": 15
+  },
+  {
+    "placement": "Mobile App: Build a Doll (Google Play), by Fried C",
+    "urlKey": "https://play.google.com/store/apps/details?id=com.fcg.builda",
+    "type": "Mobile application",
+    "impressions": 11
+  },
+  {
+    "placement": "Mobile App: Word Master - Classic (iTunes App Stor",
+    "urlKey": "https://itunes.apple.com/us/app/id979597990",
+    "type": "Mobile application",
+    "impressions": 127
+  },
+  {
+    "placement": "planet.fr",
+    "urlKey": "planet.fr",
+    "type": "Site",
+    "impressions": 13
+  },
+  {
+    "placement": "Mobile App: PDF Reader Lite (Google Play), by GUAN",
+    "urlKey": "https://play.google.com/store/apps/details?id=com.pdfreader.",
+    "type": "Mobile application",
+    "impressions": 1
+  },
+  {
+    "placement": "Mobile App: Two Blocks! (iTunes App Store), by Tal",
+    "urlKey": "https://itunes.apple.com/us/app/id6744995927",
+    "type": "Mobile application",
+    "impressions": 16
+  },
+  {
+    "placement": "Mobile App: Worms .io Hungry Game (Google Play), b",
+    "urlKey": "https://play.google.com/store/apps/details?id=com.snakegame.",
+    "type": "Mobile application",
+    "impressions": 6
+  },
+  {
+    "placement": "Mobile App: Dice Merge 3D - Merge puzzle (Google P",
+    "urlKey": "https://play.google.com/store/apps/details?id=com.dicedom.di",
+    "type": "Mobile application",
+    "impressions": 6
+  },
+  {
+    "placement": "Mobile App: QR & Barcode Scanner (Google Play), by",
+    "urlKey": "https://play.google.com/store/apps/details?id=qrcode.barcode",
+    "type": "Mobile application",
+    "impressions": 6
+  }
+]
