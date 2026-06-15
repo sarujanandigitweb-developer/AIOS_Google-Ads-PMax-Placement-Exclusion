@@ -33,7 +33,9 @@ function resolveList(nodeName, globalKey) {
       const rows = $(nodeName).all().map((i) => i.json);
       const vals = [];
       for (const r of rows) {
-        const v = r.Keywords || r.keyword || r.Keyword || Object.values(r)[0];
+        // Prefer a "Keywords" column (case/space-insensitive); else fall back to the first cell.
+        const keyName = Object.keys(r).find((k) => String(k).trim().toLowerCase() === 'keywords');
+        const v = keyName ? r[keyName] : Object.values(r)[0];
         if (v !== undefined && v !== null && String(v).trim() !== '') vals.push(String(v).trim());
       }
       if (vals.length) return vals;

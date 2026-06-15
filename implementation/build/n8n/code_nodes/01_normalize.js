@@ -17,7 +17,12 @@
 
 // ── Config (mirrors implementation/build/config/CONFIG_SPEC.md; no business rules here) ──
 const KNOWN_TYPES = ['Mobile application', 'Site', 'YouTube video', 'Google products'];
-const COL = {
+// Column mapping adapts to whatever shape the Google Sheets read node returns —
+// structural hygiene only, NO business rule (those live in docs/D04_BUSINESS_RULES.md):
+//   - Read node "Header Row = 3" set  -> real headers ('Placement', 'Impr.', ...)
+//   - Header Row left at default 1     -> the title row is consumed as the header, so
+//     columns arrive as { '<...placement report>': colA, col_2: B, ... col_6: F }.
+const REAL_COLS = {
   placement: 'Placement',
   url: 'Placement URL',
   type: 'Type',
@@ -25,6 +30,22 @@ const COL = {
   campaign: 'Campaign',
   impr: 'Impr.',
 };
+function resolveColumns(sample) {
+  // Preferred path: the real header row reached us.
+  if (sample && Object.prototype.hasOwnProperty.call(sample, REAL_COLS.placement)) {
+    return REAL_COLS;
+  }
+  // Fallback path: title row was used as header -> positional col_2..col_6, and the
+  // Placement column carries the report-title key.
+  const keys = sample ? Object.keys(sample) : [];
+  const reportKey =
+    keys.find((k) => String(k).toLowerCase().indexOf('placement report') !== -1) ||
+    keys.find((k) => k !== 'row_number') ||
+    REAL_COLS.placement;
+  return { placement: reportKey, url: 'col_2', type: 'col_3', network: 'col_4', campaign: 'col_5', impr: 'col_6' };
+}
+// Assigned from the first input row in Main (kept as `let` so it can adapt at run time).
+let COL = REAL_COLS;
 const NONDATA_MARKERS = ['performance max placement report'];
 // Date-range title row, e.g. "10 March 2026 - 16 March 2026"
 const DATE_RANGE_RE = /^\d{1,2}\s+\w+\s+\d{4}\s*-\s*\d{1,2}\s+\w+\s+\d{4}$/i;
@@ -62,6 +83,7 @@ function isNonDataRow(row) {
 
 // ── Main ──
 const input = items.map((i) => i.json);
+COL = resolveColumns(input[0]); // adapt mapping to the read node's actual header shape
 const summary = {
   rows_in: input.length,
   rows_out: 0,
