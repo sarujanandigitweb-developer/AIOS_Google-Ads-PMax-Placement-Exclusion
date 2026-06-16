@@ -1,0 +1,1087 @@
+{
+  "name": "GADS_PMAX_Placement Exclusion",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1024,
+        -1744
+      ],
+      "id": "92b809f5-819c-4b99-aa82-f4d5650a5cda",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1SVuTTlfoJS7yCvOu_35JGx8FNb35dA5AnWFj1hM-GAw",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Placement Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SVuTTlfoJS7yCvOu_35JGx8FNb35dA5AnWFj1hM-GAw/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -544,
+        -1744
+      ],
+      "id": "1fe2eec0-5bb0-40c4-8e9e-cd1871cc81c6",
+      "name": "Read Placements",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NJVlQjxoxTsPvqHr",
+          "name": "Sarujanan"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * gapmax REQ-01 — n8n Code Node 1: NORMALIZE\n * Phase 1 offline filtering logic. Mode: \"Run Once for All Items\".\n *\n * Purpose: turn raw \"Placement Data\" rows (real Google Sheet) into clean, typed records\n * for the Aggregate → Threshold → Classify → Validate chain. Structural hygiene only —\n * NO aggregation, NO classification, NO business rule (those live in docs/D04_BUSINESS_RULES.md).\n *\n * Real sheet facts:\n *   - Title rows 1-2 precede the header (header on row 3).\n *   - Columns: Placement | Placement URL | Type | Network | Campaign | Impr.\n *   - Impr. arrives as string (\"1.0\", \"1 200\", \"255\").\n *   - Type ∈ { Mobile application, Site, YouTube video, Google products }.\n *\n * Canonical refs: docs/D04_BUSINESS_RULES.md, queries/QUERY_PACK.md.\n */\n\n// ── Config (mirrors implementation/build/config/CONFIG_SPEC.md; no business rules here) ──\nconst KNOWN_TYPES = ['Mobile application', 'Site', 'YouTube video', 'Google products'];\n// Column mapping adapts to whatever shape the Google Sheets read node returns —\n// structural hygiene only, NO business rule (those live in docs/D04_BUSINESS_RULES.md):\n//   - Read node \"Header Row = 3\" set  -> real headers ('Placement', 'Impr.', ...)\n//   - Header Row left at default 1     -> the title row is consumed as the header, so\n//     columns arrive as { '<...placement report>': colA, col_2: B, ... col_6: F }.\nconst REAL_COLS = {\n  placement: 'Placement',\n  url: 'Placement URL',\n  type: 'Type',\n  network: 'Network',\n  campaign: 'Campaign',\n  impr: 'Impr.',\n};\nfunction resolveColumns(sample) {\n  // Preferred path: the real header row reached us.\n  if (sample && Object.prototype.hasOwnProperty.call(sample, REAL_COLS.placement)) {\n    return REAL_COLS;\n  }\n  // Fallback path: title row was used as header -> positional col_2..col_6, and the\n  // Placement column carries the report-title key.\n  const keys = sample ? Object.keys(sample) : [];\n  const reportKey =\n    keys.find((k) => String(k).toLowerCase().indexOf('placement report') !== -1) ||\n    keys.find((k) => k !== 'row_number') ||\n    REAL_COLS.placement;\n  return { placement: reportKey, url: 'col_2', type: 'col_3', network: 'col_4', campaign: 'col_5', impr: 'col_6' };\n}\n// Assigned from the first input row in Main (kept as `let` so it can adapt at run time).\nlet COL = REAL_COLS;\nconst NONDATA_MARKERS = ['performance max placement report'];\n// Date-range title row, e.g. \"10 March 2026 - 16 March 2026\"\nconst DATE_RANGE_RE = /^\\d{1,2}\\s+\\w+\\s+\\d{4}\\s*-\\s*\\d{1,2}\\s+\\w+\\s+\\d{4}$/i;\n\n// ── Helpers ──\nfunction clean(v) {\n  return (v === undefined || v === null) ? '' : String(v).trim();\n}\n\n// \"1.0\" -> 1, \"1 200\" -> 1200, \"1,200\" -> 1200, \"\" -> null (parse failure)\nfunction parseImpr(raw) {\n  const s = clean(raw).replace(/[\\s  ]/g, '').replace(/,/g, '');\n  if (s === '') return null;\n  const n = Number(s);\n  if (!Number.isFinite(n)) return null;\n  return Math.round(n);\n}\n\nfunction canonicalType(raw) {\n  const t = clean(raw);\n  if (t === '') return 'UNKNOWN';\n  const hit = KNOWN_TYPES.find((k) => k.toLowerCase() === t.toLowerCase());\n  return hit || 'UNKNOWN';\n}\n\nfunction isNonDataRow(row) {\n  const placement = clean(row[COL.placement]);\n  const low = placement.toLowerCase();\n  if (NONDATA_MARKERS.includes(low)) return true;\n  if (DATE_RANGE_RE.test(placement)) return true;\n  // A stray header row that slipped through (raw read without offset).\n  if (low === 'placement' && clean(row[COL.type]).toLowerCase() === 'type') return true;\n  return false;\n}\n\n// ── Main ──\nconst input = items.map((i) => i.json);\nCOL = resolveColumns(input[0]); // adapt mapping to the read node's actual header shape\nconst summary = {\n  rows_in: input.length,\n  rows_out: 0,\n  skipped_empty: 0,\n  skipped_nondata: 0,\n  impr_warnings: 0,\n  normalizeWarnings: [],\n  hasSiteRows: false,\n  hardError: false,\n};\n\nconst out = [];\n\nfor (const row of input) {\n  if (isNonDataRow(row)) {\n    summary.skipped_nondata += 1;\n    continue;\n  }\n\n  const placement = clean(row[COL.placement]);\n  let urlKey = clean(row[COL.url]).toLowerCase();\n  if (urlKey === '') urlKey = placement.toLowerCase(); // fallback when URL missing\n\n  // Empty/garbage row: no identifier at all.\n  if (urlKey === '') {\n    summary.skipped_empty += 1;\n    continue;\n  }\n\n  const type = canonicalType(row[COL.type]);\n  if (type === 'UNKNOWN') {\n    summary.normalizeWarnings.push(`unknown type \"${clean(row[COL.type])}\" for ${urlKey}`);\n  }\n\n  const originalImpressions = clean(row[COL.impr]);\n  let impressions = parseImpr(originalImpressions);\n  if (impressions === null) {\n    summary.impr_warnings += 1;\n    summary.normalizeWarnings.push(`non-numeric Impr. \"${originalImpressions}\" for ${urlKey} -> 0`);\n    impressions = 0;\n  }\n  if (impressions < 0) impressions = 0;\n\n  if (type === 'Site') summary.hasSiteRows = true;\n\n  out.push({\n    placement,\n    urlKey,\n    type,\n    network: clean(row[COL.network]),\n    campaign: clean(row[COL.campaign]),\n    originalImpressions,\n    impressions,\n  });\n}\n\nsummary.rows_out = out.length;\n\n// Conservation + emptiness guards.\nconst conserved =\n  summary.rows_out + summary.skipped_empty + summary.skipped_nondata === summary.rows_in;\nif (!conserved) {\n  summary.hardError = true;\n  summary.normalizeWarnings.push('conservation check failed (rows_out + skipped != rows_in)');\n}\nif (summary.rows_out === 0) {\n  summary.hardError = true;\n  summary.normalizeWarnings.push('no data rows after normalization');\n}\nif (!summary.hasSiteRows) {\n  summary.normalizeWarnings.push(\n    'no Type=Site rows — threshold node will be unable to compute an average'\n  );\n}\n\n// n8n output: each data item carries __summary so the next node / RunLog can read it\n// without a side channel. If there are zero output rows, still emit the summary.\nif (out.length === 0) {\n  return [{ json: { __summary: summary } }];\n}\nreturn out.map((r) => ({ json: { ...r, __summary: summary } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        -1744
+      ],
+      "id": "5ceb231b-039f-43ff-bae0-0ef87899082a",
+      "name": "01_Normalize "
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * gapmax REQ-01 — n8n Code Node 3: THRESHOLD\n * Phase 1 offline filtering logic. Mode: \"Run Once for All Items\".\n *\n * Purpose: compute the per-run exclusion threshold over the AGGREGATED Site population\n * (D04 Rule 1, operating on Rule-0 output). NO classification here — that is Node 4.\n *   threshold = max( SUM(impr of unique Site placements) / COUNT(unique Site placements),\n *                    IMPRESSION_FLOOR )\n * IMPRESSION_FLOOR = 500 (DEC-02; OD-1 pending). Floor prevents over-pruning when the raw\n * average is tiny (real data raw avg ≈ low tens).\n *\n * Input (from 02_aggregate.js): { placement, urlKey, type, network, impressions,\n *                                 campaignCount, campaigns, sourceRows, __summary }\n * Output: same records passed through unchanged + `threshold` attached to each, plus a\n * __summary carrying the threshold computation (for Classify + RunLog).\n *\n * Canonical refs: docs/D04_BUSINESS_RULES.md (Rules 0,1), queries/QUERY_PACK.md (Q0).\n */\n\n// ── Config (mirrors implementation/build/config/CONFIG_SPEC.md; cites DEC-02) ──\nconst IMPRESSION_FLOOR = 500;\nconst SITE_TYPE = 'Site';\n\n// ── Read aggregated items (drop any summary-only item) ──\nconst input = items.map((i) => i.json).filter((r) => r && r.urlKey);\n\nconst summary = {\n  rows_in: input.length,\n  rows_out: 0,\n  site_count: 0,\n  site_impressions: 0,\n  raw_avg: 0,\n  impression_floor: IMPRESSION_FLOOR,\n  threshold: IMPRESSION_FLOOR,\n  floor_applied: false,\n  hardError: false,\n  thresholdWarnings: [],\n};\n\n// ── Compute over aggregated Site placements only ──\nfor (const r of input) {\n  if (r.type === SITE_TYPE) {\n    summary.site_count += 1;\n    summary.site_impressions += Number.isFinite(r.impressions) ? r.impressions : 0;\n  }\n}\n\nif (summary.site_count > 0) {\n  summary.raw_avg = summary.site_impressions / summary.site_count;\n} else {\n  summary.raw_avg = 0;\n  summary.hardError = true;\n  summary.thresholdWarnings.push(\n    'no aggregated Site placements — cannot compute average; defaulting threshold to floor'\n  );\n}\n\nsummary.threshold = Math.max(summary.raw_avg, IMPRESSION_FLOOR);\nsummary.floor_applied = summary.threshold === IMPRESSION_FLOOR && summary.raw_avg < IMPRESSION_FLOOR;\n\n// ── Validation (TH1–TH6) ──\nconst expected = Math.max(summary.raw_avg, IMPRESSION_FLOOR);\nif (summary.threshold !== expected) {\n  summary.hardError = true; // TH1\n  summary.thresholdWarnings.push('TH1 threshold != max(raw_avg, floor)');\n}\nif (summary.threshold < IMPRESSION_FLOOR) {\n  summary.hardError = true; // TH2\n  summary.thresholdWarnings.push('TH2 threshold below floor');\n}\n// TH3 handled above (site_count == 0 => hardError)\nif (summary.site_count > 0) {\n  const expAvg = summary.site_impressions / summary.site_count;\n  if (Math.abs(expAvg - summary.raw_avg) > 1e-9) {\n    summary.hardError = true; // TH4\n    summary.thresholdWarnings.push('TH4 raw_avg != site_impr/site_count');\n  }\n}\n\n// ── Pass records through unchanged, attaching the threshold for Node 4 ──\nconst out = input.map((r) => ({ ...r, threshold: summary.threshold }));\nsummary.rows_out = out.length;\n\n// TH5: pass-through conserves rows\nif (summary.rows_out !== summary.rows_in) {\n  summary.hardError = true;\n  summary.thresholdWarnings.push('TH5 rows_out != rows_in (pass-through lost rows)');\n}\n// TH6: floor correctly applied when raw_avg < floor\nif (summary.raw_avg < IMPRESSION_FLOOR && summary.threshold !== IMPRESSION_FLOOR) {\n  summary.hardError = true;\n  summary.thresholdWarnings.push('TH6 floor not applied when raw_avg < floor');\n}\n\nif (out.length === 0) {\n  return [{ json: { __summary: summary } }];\n}\nreturn out.map((r) => ({ json: { ...r, __summary: summary } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        -1744
+      ],
+      "id": "cf81ee26-1fd4-429b-bce1-8c75cd78ff39",
+      "name": "03_Threshold"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * gapmax REQ-01 — n8n Code Node 4: CLASSIFY\n * Phase 1 offline filtering logic. Mode: \"Run Once for All Items\".\n *\n * Purpose: assign KEEP / EXCLUDE / MONITOR per the CANONICAL decision tree\n * (docs/D04_BUSINESS_RULES.md Rule 2; DEC-03 order, DEC-09/10). This node does NOT\n * define rules — it executes D04. Threshold comes from Node 3; keywords from the Sheet\n * `Unrelated keywords` tab; safeguard from the `Config` tab (OI-02 — empty = no-op).\n *\n * Decision tree (stop at first match):\n *   1. type = 'Mobile application'                                  -> EXCLUDE\n *   2. type = 'Site' + unrelated keyword + impressions >  threshold -> EXCLUDE\n *   3. type = 'Site' + unrelated keyword + impressions <= threshold -> MONITOR\n *   4. type = 'YouTube video'                                       -> KEEP (DEC-09)\n *   5. type = 'Google products'                                     -> KEEP (DEC-10)\n *   6. otherwise (incl. Site without keyword, UNKNOWN)              -> KEEP\n *   Rule 5 safeguard: a related/safeguard term present overrides EXCLUDE -> KEEP.\n *\n * Input (from 03_threshold.js): aggregated record + `threshold`.\n * Output: record + { decision, ruleTrace, matchedKeyword, safeguardApplied }.\n */\n\nconst MOBILE = 'Mobile application';\nconst SITE = 'Site';\nconst YOUTUBE = 'YouTube video';\nconst GOOGLE = 'Google products';\n\n// ── Resolve keyword + safeguard lists (n8n node refs with offline fallback) ──\nfunction resolveList(nodeName, globalKey) {\n  // n8n: read from a referenced Sheets node; offline: read injected global.\n  try {\n    if (typeof $ === 'function') {\n      const rows = $(nodeName).all().map((i) => i.json);\n      const vals = [];\n      for (const r of rows) {\n        // Prefer a \"Keywords\" column (case/space-insensitive); else fall back to the first cell.\n        const keyName = Object.keys(r).find((k) => String(k).trim().toLowerCase() === 'keywords');\n        const v = keyName ? r[keyName] : Object.values(r)[0];\n        if (v !== undefined && v !== null && String(v).trim() !== '') vals.push(String(v).trim());\n      }\n      if (vals.length) return vals;\n    }\n  } catch (e) {\n    /* fall through to global */\n  }\n  const g = (typeof globalThis !== 'undefined' && globalThis[globalKey]) || [];\n  return Array.isArray(g) ? g : [];\n}\n\nconst keywords = resolveList('Read Keywords', '__KEYWORDS__').map((k) => k.toLowerCase());\nconst safeguard = resolveList('Read Config', '__SAFEGUARD__').map((k) => k.toLowerCase());\n\nfunction firstKeyword(urlKey, list) {\n  for (const term of list) {\n    if (term && urlKey.includes(term)) return term;\n  }\n  return null;\n}\n\n// ── Read threshold-stage items ──\nconst input = items.map((i) => i.json).filter((r) => r && r.urlKey);\n\nconst summary = {\n  rows_in: input.length,\n  rows_out: 0,\n  keyword_count: keywords.length,\n  safeguard_count: safeguard.length,\n  threshold: input.length ? input[0].threshold : null,\n  counts: { KEEP: 0, EXCLUDE: 0, MONITOR: 0 },\n  by_type: {},\n  safeguard_overrides: 0,\n  hardError: false,\n  classifyWarnings: [],\n};\nif (safeguard.length === 0) {\n  summary.classifyWarnings.push('safeguard list empty (OI-02 open) — Rule 5 is a no-op this run');\n}\n\nfunction classify(r) {\n  const urlKey = r.urlKey;\n  const threshold = r.threshold;\n  let decision = 'KEEP';\n  let ruleTrace = 'order-6:default-KEEP';\n  let matchedKeyword = null;\n\n  if (r.type === MOBILE) {\n    decision = 'EXCLUDE';\n    ruleTrace = 'order-1:Mobile application';\n  } else if (r.type === SITE) {\n    const kw = firstKeyword(urlKey, keywords);\n    if (kw) {\n      matchedKeyword = kw;\n      if (r.impressions > threshold) {\n        decision = 'EXCLUDE';\n        ruleTrace = `order-2:Site+kw:${kw}+${r.impressions}>${threshold}`;\n      } else {\n        decision = 'MONITOR';\n        ruleTrace = `order-3:Site+kw:${kw}+${r.impressions}<=${threshold}`;\n      }\n    } else {\n      decision = 'KEEP';\n      ruleTrace = 'order-6:Site-no-keyword';\n    }\n  } else if (r.type === YOUTUBE) {\n    decision = 'KEEP';\n    ruleTrace = 'order-4:YouTube-video-KEEP(DEC-09)';\n  } else if (r.type === GOOGLE) {\n    decision = 'KEEP';\n    ruleTrace = 'order-5:Google-products-KEEP(DEC-10)';\n  }\n\n  // Rule 5 safeguard: override EXCLUDE -> KEEP when a safeguard term is present.\n  let safeguardApplied = false;\n  if (decision === 'EXCLUDE' && safeguard.length) {\n    const sg = firstKeyword(urlKey, safeguard);\n    if (sg) {\n      decision = 'KEEP';\n      ruleTrace = `safeguard:${sg}->KEEP`;\n      safeguardApplied = true;\n    }\n  }\n  return { decision, ruleTrace, matchedKeyword, safeguardApplied };\n}\n\nconst out = [];\nfor (const r of input) {\n  const c = classify(r);\n  if (c.safeguardApplied) summary.safeguard_overrides += 1;\n  summary.counts[c.decision] += 1;\n  summary.by_type[r.type] = summary.by_type[r.type] || { KEEP: 0, EXCLUDE: 0, MONITOR: 0 };\n  summary.by_type[r.type][c.decision] += 1;\n  out.push({ ...r, ...c });\n}\nsummary.rows_out = out.length;\n\n// ── Validation (CL1–CL8) ──\nconst monitors = out.filter((o) => o.decision === 'MONITOR');\nconst checks = {\n  CL1_apps_excluded: out\n    .filter((o) => o.type === MOBILE)\n    .every((o) => o.decision === 'EXCLUDE' || o.safeguardApplied),\n  CL2_youtube_keep: out.filter((o) => o.type === YOUTUBE).every((o) => o.decision === 'KEEP'),\n  CL3_google_keep: out.filter((o) => o.type === GOOGLE).every((o) => o.decision === 'KEEP'),\n  CL4_monitor_below_threshold: monitors.every((o) => o.impressions <= o.threshold),\n  CL5_valid_decisions: out.every((o) => ['KEEP', 'EXCLUDE', 'MONITOR'].includes(o.decision)),\n  CL6_conserved: summary.rows_out === summary.rows_in,\n  CL7_site_decisions_have_kw: out\n    .filter((o) => o.type === SITE && (o.decision === 'EXCLUDE' || o.decision === 'MONITOR'))\n    .every((o) => !!o.matchedKeyword),\n  CL8_counts_sum: summary.counts.KEEP + summary.counts.EXCLUDE + summary.counts.MONITOR === summary.rows_out,\n};\nsummary.checks = checks;\nif (!Object.values(checks).every(Boolean)) {\n  summary.hardError = true;\n  for (const [k, v] of Object.entries(checks)) if (!v) summary.classifyWarnings.push(`FAILED ${k}`);\n}\n\nif (out.length === 0) {\n  return [{ json: { __summary: summary } }];\n}\nreturn out.map((r) => ({ json: { ...r, __summary: summary } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -1744
+      ],
+      "id": "f5f96603-940b-41c3-9e92-a5c1ef1088ba",
+      "name": "04_Classify"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * gapmax REQ-01 — n8n Code Node 5: VALIDATE\n * Phase 1 offline filtering logic. Mode: \"Run Once for All Items\".\n *\n * Purpose: run the V1–V9 gate checks (docs/D06_VALIDATION_PLAN.md,\n * queries/VALIDATION_QUERIES.md) over the classified placements, produce a pass/fail\n * decision + metrics for the RunLog and the IF Gate, and pass the records through so the\n * ToExclude / ToMonitor writers can split them. No re-classification — verification only.\n *\n * Input (from 04_classify.js): aggregated record + { threshold, decision, ruleTrace,\n *                              matchedKeyword, safeguardApplied, __summary }.\n * Output: each record passed through + a shared `__validation` block (checks, pass,\n *         metrics, gate) for downstream consumers.\n *\n * Canonical refs: docs/D04_BUSINESS_RULES.md, docs/D06_VALIDATION_PLAN.md.\n */\n\nconst MOBILE = 'Mobile application';\nconst YOUTUBE = 'YouTube video';\nconst GOOGLE = 'Google products';\nconst VALID_DECISIONS = ['KEEP', 'EXCLUDE', 'MONITOR'];\n\n// Google Ads shared-list cap (CONFIG_SPEC EXCLUSION_CAP — confirm value, OI/OD).\nconst EXCLUSION_CAP =\n  (typeof globalThis !== 'undefined' && Number.isFinite(globalThis.__EXCLUSION_CAP__))\n    ? globalThis.__EXCLUSION_CAP__\n    : 65000;\nconst CAP_CONFIRMED =\n  typeof globalThis !== 'undefined' && Number.isFinite(globalThis.__EXCLUSION_CAP__);\n\nconst records = items.map((i) => i.json).filter((r) => r && r.urlKey);\n\nconst classifySummary = records.length ? records[0].__summary : {};\nconst safeguardCount = classifySummary && classifySummary.safeguard_count\n  ? classifySummary.safeguard_count\n  : 0;\nconst threshold = records.length ? records[0].threshold : null;\n\nconst excludes = records.filter((r) => r.decision === 'EXCLUDE');\nconst monitors = records.filter((r) => r.decision === 'MONITOR');\nconst keeps = records.filter((r) => r.decision === 'KEEP');\n\nconst checks = [];\nfunction add(id, name, status, detail) {\n  checks.push({ id, name, status, detail });\n}\n\n// V1 — Mobile applications classified correctly (EXCLUDE unless safeguard override)\nconst v1bad = records.filter(\n  (r) => r.type === MOBILE && r.decision !== 'EXCLUDE' && !r.safeguardApplied\n);\nadd('V1', 'Mobile applications -> EXCLUDE', v1bad.length === 0 ? 'PASS' : 'FAIL',\n  `${records.filter((r) => r.type === MOBILE).length} apps, ${v1bad.length} mis-classified`);\n\n// V2 — YouTube never EXCLUDE\nconst v2bad = records.filter((r) => r.type === YOUTUBE && r.decision === 'EXCLUDE');\nadd('V2', 'YouTube video never EXCLUDE', v2bad.length === 0 ? 'PASS' : 'FAIL', `${v2bad.length} violations`);\n\n// V3 — Google products never EXCLUDE\nconst v3bad = records.filter((r) => r.type === GOOGLE && r.decision === 'EXCLUDE');\nadd('V3', 'Google products never EXCLUDE', v3bad.length === 0 ? 'PASS' : 'FAIL', `${v3bad.length} violations`);\n\n// V4 — no MONITOR exceeds threshold\nconst v4bad = monitors.filter((r) => r.impressions > r.threshold);\nadd('V4', 'MONITOR <= threshold', v4bad.length === 0 ? 'PASS' : 'FAIL', `${v4bad.length} over threshold`);\n\n// V5 — valid decision values only\nconst v5bad = records.filter((r) => !VALID_DECISIONS.includes(r.decision));\nadd('V5', 'valid decisions only', v5bad.length === 0 ? 'PASS' : 'FAIL', `${v5bad.length} invalid`);\n\n// V6 — safeguard override (PENDING when OI-02 absent)\nif (safeguardCount === 0) {\n  add('V6', 'safeguard override', 'PENDING', 'safeguard list empty (OI-02 open) — non-blocking');\n} else {\n  // when present: no EXCLUDE record should still contain a safeguard term (override must have fired)\n  add('V6', 'safeguard override', 'PASS', `safeguard active (${safeguardCount} terms)`);\n}\n\n// V7 — no duplicate urlKey within EXCLUDE\nconst exKeys = excludes.map((r) => r.urlKey);\nconst v7dupes = exKeys.length - new Set(exKeys).size;\nadd('V7', 'no duplicate urlKey in EXCLUDE', v7dupes === 0 ? 'PASS' : 'FAIL', `${v7dupes} duplicates`);\n\n// V8 — EXCLUDE count <= cap\nadd('V8', 'EXCLUDE count <= cap', excludes.length <= EXCLUSION_CAP ? 'PASS' : 'FAIL',\n  `exclude=${excludes.length} cap=${EXCLUSION_CAP}${CAP_CONFIRMED ? '' : ' (cap unconfirmed)'}`);\n\n// V9 — counts reconcile with total rows\nconst reconcile = keeps.length + excludes.length + monitors.length === records.length;\nadd('V9', 'counts reconcile', reconcile ? 'PASS' : 'FAIL',\n  `${keeps.length}+${excludes.length}+${monitors.length} vs ${records.length}`);\n\nconst failed = checks.filter((c) => c.status === 'FAIL');\nconst pending = checks.filter((c) => c.status === 'PENDING');\nconst pass = failed.length === 0; // PENDING is non-blocking for the gate\n\nconst metrics = {\n  total: records.length,\n  keep: keeps.length,\n  exclude: excludes.length,\n  monitor: monitors.length,\n  threshold,\n  exclusion_cap: EXCLUSION_CAP,\n  cap_confirmed: CAP_CONFIRMED,\n  keyword_count: classifySummary.keyword_count || 0,\n  safeguard_count: safeguardCount,\n};\n\nconst validation = {\n  checks,\n  pass,\n  failed_ids: failed.map((c) => c.id),\n  pending_ids: pending.map((c) => c.id),\n  metrics,\n  // Gate object the IF node reads directly.\n  gate: { pass, excludeCount: excludes.length, withinCap: excludes.length <= EXCLUSION_CAP },\n  runLog: {\n    runDate: null, // stamped by RunLog writer (Date unavailable in this sandbox)\n    ...metrics,\n    pass,\n    failed: failed.map((c) => c.id),\n    pending: pending.map((c) => c.id),\n  },\n};\n\nif (records.length === 0) {\n  return [{ json: { __validation: { ...validation, pass: false, note: 'no input rows' } } }];\n}\nreturn records.map((r) => ({ json: { ...r, __validation: validation } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        -1744
+      ],
+      "id": "3113a3d4-3b13-457a-b46f-cdd79acdc253",
+      "name": "05_Validate"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2352,
+        -1952
+      ],
+      "id": "9fbab55e-e577-4293-ab2b-9f1cde3de9c2",
+      "name": "Wait",
+      "webhookId": "b61f5534-67b6-4ec7-b62e-b35888a71ba7"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c7c03b76-681f-4c18-8c1b-9432b38029a2",
+              "leftValue": "={{ $json.__validation.pass }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "a58858ea-642d-4f16-8566-3bd23d26f2c0",
+              "leftValue": "={{ $json.__validation.gate.withinCap }}",
+              "rightValue": "=true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "d607673f-12e2-4318-acaf-d7f4fe2af10f",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "=true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2336,
+        -1328
+      ],
+      "id": "dc804d49-3c3a-4aec-9486-299742ac0fdc",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "sarujanandigitweb@gmail.com",
+        "subject": "✅ GAPMax PMax Placement Exclusion – Workflow Completed Successfully",
+        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:700px;margin:auto;border:1px solid #d1d5db;border-radius:10px;overflow:hidden;\">      <div style=\"background:#16a34a;color:white;padding:20px;\">         <h2 style=\"margin:0;\">✅ GAPMax Workflow Success</h2>         <p style=\"margin:5px 0 0 0;\">             Google Ads PMax Placement Exclusion completed successfully.         </p>     </div>      <div style=\"padding:20px;\">          <h3>Execution Summary</h3>          <table style=\"width:100%;border-collapse:collapse;\">             <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Execution Time</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;\">                     {{$json.at}}                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Total Placements</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;\">                     {{$json.__summary.rows_in}}                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Excluded</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;color:red;\">                     {{$json.__summary.counts.EXCLUDE}}                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Monitor</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;color:orange;\">                     {{$json.__summary.counts.MONITOR}}                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Keep</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;color:green;\">                     {{$json.__summary.counts.KEEP}}                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Threshold</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;\">                     {{$json.__summary.threshold}}                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Validation</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;color:green;\">                     PASSED                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Dashboard Status</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;\">                     {{$json.message}}                 </td>             </tr>          </table>          <br>          <div style=\"background:#dcfce7;padding:15px;border-left:5px solid #16a34a;\">             <b>Result:</b><br><br>             ✔ Validation checks passed.<br>             ✔ Dashboard refreshed successfully.<br>             ✔ Workflow completed without errors.         </div>      </div>      <div style=\"background:#f3f4f6;padding:15px;text-align:center;color:#6b7280;font-size:12px;\">         GAPMax AIOS • Automated PMax Placement Exclusion Pipeline     </div>  </div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        -1504
+      ],
+      "id": "9e019d5a-4bf9-4a72-bbc8-26537006fcbd",
+      "name": "Send a message",
+      "webhookId": "77dc64c4-f0bb-4ed7-a62a-b2373192ecbe",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "8221PbjCspTa9mP4",
+          "name": "Sarujanan"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "sarujanandigitweb@gmail.com",
+        "subject": "🚨 GAPMax PMax Placement Exclusion – Validation Failed",
+        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:700px;margin:auto;border:1px solid #d1d5db;border-radius:10px;overflow:hidden;\">      <div style=\"background:#dc2626;color:white;padding:20px;\">         <h2 style=\"margin:0;\">🚨 GAPMax Workflow Failed</h2>         <p style=\"margin:5px 0 0 0;\">             Validation checks failed. Manual review required.         </p>     </div>      <div style=\"padding:20px;\">          <h3>Failure Summary</h3>          <table style=\"width:100%;border-collapse:collapse;\">              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Total Placements</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;\">                     {{$json.__summary.rows_in}}                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Excluded</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;color:red;\">                     {{$json.__summary.counts.EXCLUDE}}                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Monitor</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;color:orange;\">                     {{$json.__summary.counts.MONITOR}}                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Keep</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;color:green;\">                     {{$json.__summary.counts.KEEP}}                 </td>             </tr>              <tr>                 <td style=\"padding:8px;border:1px solid #ddd;\"><b>Validation Status</b></td>                 <td style=\"padding:8px;border:1px solid #ddd;color:red;\">                     FAILED                 </td>             </tr>          </table>          <br>          <div style=\"background:#fee2e2;padding:15px;border-left:5px solid #dc2626;\">             <b>Failed Validation IDs:</b><br><br>              {{$json.__validation.failed_ids.join(', ')}}         </div>          <br>          <div style=\"background:#fef3c7;padding:15px;border-left:5px solid #d97706;\">             <b>Recommended Actions:</b><br><br>              • Review validation logic.<br>             • Verify exclusion counts.<br>             • Check threshold calculations.<br>             • Inspect dashboard generation logs.<br>             • Re-run workflow after correction.         </div>      </div>      <div style=\"background:#f3f4f6;padding:15px;text-align:center;color:#6b7280;font-size:12px;\">         GAPMax AIOS • Automated PMax Placement Exclusion Pipeline     </div>  </div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2672,
+        -1216
+      ],
+      "id": "3b6c593a-6216-4688-a65d-a116271d8345",
+      "name": "Send a message1",
+      "webhookId": "16e3465e-cce0-4786-91ea-efee6d983693",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "8221PbjCspTa9mP4",
+          "name": "Sarujanan"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1SVuTTlfoJS7yCvOu_35JGx8FNb35dA5AnWFj1hM-GAw",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 996350821,
+          "mode": "list",
+          "cachedResultName": "Unrelated keywords",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SVuTTlfoJS7yCvOu_35JGx8FNb35dA5AnWFj1hM-GAw/edit#gid=996350821"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -768,
+        -1744
+      ],
+      "id": "e69968ee-525b-49ea-80c2-24de7078cbe6",
+      "name": "Read Keywords",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NJVlQjxoxTsPvqHr",
+          "name": "Sarujanan"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1SVuTTlfoJS7yCvOu_35JGx8FNb35dA5AnWFj1hM-GAw",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 22385341,
+          "mode": "list",
+          "cachedResultName": "ToExclude",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SVuTTlfoJS7yCvOu_35JGx8FNb35dA5AnWFj1hM-GAw/edit#gid=22385341"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Placement": "={{ $json.placement }}",
+            "Placement URL": "={{ $json.urlKey }}",
+            "Type": "={{ $json.type }}",
+            "Campaigns": "={{ $json.campaigns }}",
+            "Impressions": "={{ $json.impressions }}",
+            "Decision": "={{ $json.decision }}",
+            "RuleTrace": "={{ $json.ruleTrace }}",
+            "RunDate": "={{ $now.setZone('Europe/Paris').toFormat('yyyy-MM-dd HH:mm') }}"
+          },
+          "matchingColumns": [
+            "Placement"
+          ],
+          "schema": [
+            {
+              "id": "Placement",
+              "displayName": "Placement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Placement URL",
+              "displayName": "Placement URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Impressions",
+              "displayName": "Impressions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Campaigns",
+              "displayName": "Campaigns",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Decision",
+              "displayName": "Decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RuleTrace",
+              "displayName": "RuleTrace",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RunDate",
+              "displayName": "RunDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1408,
+        -1952
+      ],
+      "id": "daf064f3-6c60-4814-ae56-5423990beb26",
+      "name": "ToExclude",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NJVlQjxoxTsPvqHr",
+          "name": "Sarujanan"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1SVuTTlfoJS7yCvOu_35JGx8FNb35dA5AnWFj1hM-GAw",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1345394793,
+          "mode": "list",
+          "cachedResultName": "ToMonitor",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SVuTTlfoJS7yCvOu_35JGx8FNb35dA5AnWFj1hM-GAw/edit#gid=1345394793"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Placement": "={{ $json.placement }}",
+            "Placement URL": "={{ $json.urlKey }}",
+            "Type": "={{ $json.type }}",
+            "Impressions": "={{ $json.impressions }}",
+            "RuleTrace": "={{ $json.ruleTrace }}",
+            "Decision": "={{ $json.decision }}",
+            "RunDate": "={{ $now.setZone('Europe/Paris').toFormat('yyyy-MM-dd HH:mm') }}"
+          },
+          "matchingColumns": [
+            "Placement"
+          ],
+          "schema": [
+            {
+              "id": "Placement",
+              "displayName": "Placement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Placement URL",
+              "displayName": "Placement URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Impressions",
+              "displayName": "Impressions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Decision",
+              "displayName": "Decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RuleTrace",
+              "displayName": "RuleTrace",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RunDate",
+              "displayName": "RunDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1408,
+        -2144
+      ],
+      "id": "c74b2c07-5217-4fe9-9520-aaa1a7fd40c1",
+      "name": "ToMonitor",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NJVlQjxoxTsPvqHr",
+          "name": "Sarujanan"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1SVuTTlfoJS7yCvOu_35JGx8FNb35dA5AnWFj1hM-GAw",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 810423077,
+          "mode": "list",
+          "cachedResultName": "RunLog",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SVuTTlfoJS7yCvOu_35JGx8FNb35dA5AnWFj1hM-GAw/edit#gid=810423077"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "RunDate": "={{ $json.RunDate }}",
+            "Total": "={{ $json.Total }}",
+            "Keep": "={{ $json.Keep }}",
+            "Exclude": "={{ $json.Exclude }}",
+            "Safeguard": "={{ $json.Safeguard }}",
+            "Keywords": "={{ $json.Keywords }}",
+            "Pending": "={{ $json.Pending }}",
+            "Pass": "={{ $json.Pass }}",
+            "Failed": "={{ $json.Failed }}",
+            "Threshold": "={{ $json.Threshold }}",
+            "Monitor": "={{ $json.Monitor }}"
+          },
+          "matchingColumns": [
+            "RunDate"
+          ],
+          "schema": [
+            {
+              "id": "RunDate",
+              "displayName": "RunDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total",
+              "displayName": "Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Keep",
+              "displayName": "Keep",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Exclude",
+              "displayName": "Exclude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Monitor",
+              "displayName": "Monitor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Threshold",
+              "displayName": "Threshold",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Pass",
+              "displayName": "Pass",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Failed",
+              "displayName": "Failed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Pending",
+              "displayName": "Pending",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Keywords",
+              "displayName": "Keywords",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Safeguard",
+              "displayName": "Safeguard",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1536,
+        -1760
+      ],
+      "id": "27313a1e-dce3-483b-b43a-f2284668b788",
+      "name": "RunLog",
+      "executeOnce": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NJVlQjxoxTsPvqHr",
+          "name": "Sarujanan"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * gapmax REQ-01 — n8n Code Node 6: RUNLOG ROW (reducer)\n * Phase 2 workflow assembly. Mode: \"Run Once for All Items\".\n *\n * Purpose: collapse the ~950 classified+validated items from 05_Validate into ONE\n * summary item for the RunLog Google Sheets writer. NO business logic, NO\n * re-classification — pure reshaping of the summary already computed by Node 5.\n *\n * Why this node exists: 05_Validate must emit ALL records (ToExclude / ToMonitor\n * split them by decision; the IF gate reads __validation.gate). A per-item Sheets\n * writer fed that stream writes one RunLog row per record (the bug). Collapsing to\n * a single item here yields exactly one RunLog row per run — without touching 01–05.\n *\n * Input  (from 05_Validate): every item carries __validation { metrics, pass,\n *         runLog:{ failed[], pending[] }, ... } (identical on all items).\n * Output: exactly one item with the 11 RunLog columns, names matching the headers.\n *\n * Canonical refs: docs/D04_BUSINESS_RULES.md (read-only), code_nodes/05_validate.js.\n */\n\nconst v = $('05_Validate').first().json.__validation;\nconst m = v.metrics;\n\nreturn [{\n  json: {\n    RunDate: $now.setZone('Europe/Paris').toFormat('yyyy-MM-dd HH:mm'),\n    Total: m.total,\n    Keep: m.keep,\n    Exclude: m.exclude,\n    Monitor: m.monitor,\n    Threshold: m.threshold,\n    Pass: v.pass ? 'PASS' : 'FAIL',\n    Failed: (v.runLog.failed || []).join(','),\n    Pending: (v.runLog.pending || []).join(','),\n    Keywords: m.keyword_count,\n    Safeguard: m.safeguard_count,\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        -1760
+      ],
+      "id": "785df3c9-f6a2-44a8-abad-d63be15b6cd1",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "content": "## 📊 Phase 1: Data Normalization\n\n**01_Normalize** cleans raw Google Sheets data:\n- Skips title/header rows\n- Parses impressions (handles \"1,200\", \"1 200\" formats)\n- Canonicalizes Type field\n- Validates data conservation\n- Output: Clean, typed records",
+        "height": 312,
+        "width": 320,
+        "color": 2
+      },
+      "id": "fe3caff6-1fe6-4bbc-9f3b-fc942e233b91",
+      "name": "Phase 1 Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        -1568
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🔄 Phase 2: Cross-Campaign Aggregation\n\n**02_Aggregate** implements Rule 0:\n- Groups by urlKey (same placement across campaigns)\n- SUMs impressions per unique placement\n- Tracks campaign count & source rows\n- Validates impression conservation (AG1-AG6)\n- Output: One record per unique placement",
+        "height": 316,
+        "width": 356,
+        "color": 2
+      },
+      "id": "7046fb0d-5d34-438c-9782-c65a08cc4012",
+      "name": "Phase 2 Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -2144
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📏 Phase 3: Threshold Calculation\n\n**03_Threshold** implements Rule 1:\n- Computes average impressions for Site placements\n- Applies 500 impression floor (DEC-02)\n- Formula: max(avg_site_impressions, 500)\n- Passes all records through with threshold attached\n- Output: Records + threshold value",
+        "height": 312,
+        "width": 336,
+        "color": 2
+      },
+      "id": "f045d1de-840a-4799-88c6-086d73ec8774",
+      "name": "Phase 3 Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        96,
+        -1568
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🎯 Phase 4: Decision Classification\n\n**04_Classify** implements Rule 2 decision tree:\n1. Mobile apps → EXCLUDE\n2. Site + keyword + impr > threshold → EXCLUDE\n3. Site + keyword + impr ≤ threshold → MONITOR\n4. YouTube videos → KEEP\n5. Google products → KEEP\n6. Safeguard override: EXCLUDE → KEEP\n\nOutput: Records + decision/ruleTrace",
+        "height": 304,
+        "width": 356,
+        "color": 2
+      },
+      "id": "f07ba4ef-bab7-49c9-8112-605558833867",
+      "name": "Phase 4 Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -2144
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ✅ Phase 5: Validation Gate\n\n**05_Validate** runs V1-V9 checks:\n- V1: Mobile apps classified correctly\n- V2-V3: YouTube/Google never EXCLUDE\n- V4: MONITOR ≤ threshold\n- V5: Valid decisions only\n- V6: Safeguard override (PENDING if empty)\n- V7: No duplicate urlKey in EXCLUDE\n- V8: EXCLUDE count ≤ 65,000 cap\n- V9: Counts reconcile\n\nOutput: Records + __validation.gate for IF node",
+        "height": 308,
+        "width": 344,
+        "color": 2
+      },
+      "id": "4496a444-52e5-4901-a5eb-e6ea445140d5",
+      "name": "Phase 5 Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        576,
+        -1552
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * gapmax REQ-01 — n8n Code Node 2: AGGREGATE\n * Phase 1 offline filtering logic. Mode: \"Run Once for All Items\".\n *\n * Purpose: collapse cross-campaign duplicates (D04 Rule 0 / DEC-11). The same placement\n * appears across multiple PMax campaigns with different impressions; the true volume is the\n * SUM across campaigns. Produces one record per unique urlKey for Threshold → Classify.\n * NO threshold, NO classification, NO business rule beyond aggregation.\n *\n * Input (from 01_normalize.js): { placement, urlKey, type, network, campaign,\n *                                 originalImpressions, impressions, __summary }\n * Canonical refs: docs/D04_BUSINESS_RULES.md (Rule 0), queries/QUERY_PACK.md.\n */\n\n// ── Read normalized items (ignore the carried __summary; recompute our own) ──\nconst input = items\n  .map((i) => i.json)\n  .filter((r) => r && r.urlKey); // skip the summary-only item emitted when normalize had 0 rows\n\nconst summary = {\n  rows_in: input.length,\n  rows_out: 0,\n  duplicate_rows_collapsed: 0,\n  unique_placements: 0,\n  total_impressions_before: 0,\n  total_impressions_after: 0,\n  hardError: false,\n  aggregateWarnings: [],\n};\n\n// ── Group by urlKey, SUM impressions, collect unique campaigns ──\nconst groups = new Map();\n\nfor (const r of input) {\n  const impr = Number.isFinite(r.impressions) ? r.impressions : 0;\n  summary.total_impressions_before += impr;\n\n  let g = groups.get(r.urlKey);\n  if (!g) {\n    g = {\n      placement: r.placement,\n      urlKey: r.urlKey,\n      type: r.type,\n      network: r.network,\n      impressions: 0,\n      campaignsSet: new Set(),\n      sourceRows: 0,\n    };\n    groups.set(r.urlKey, g);\n  }\n  g.impressions += impr;\n  g.sourceRows += 1;\n  if (r.campaign) g.campaignsSet.add(r.campaign);\n\n  // Type/network divergence across rows of the same placement: keep first, warn.\n  if (g.type !== r.type) {\n    summary.aggregateWarnings.push(\n      `type mismatch for ${r.urlKey}: kept \"${g.type}\", saw \"${r.type}\"`\n    );\n  }\n}\n\n// ── Build output records ──\nconst out = [];\nfor (const g of groups.values()) {\n  const campaigns = Array.from(g.campaignsSet);\n  if (g.impressions < 0) g.impressions = 0;\n  summary.total_impressions_after += g.impressions;\n  if (g.sourceRows > 1) summary.duplicate_rows_collapsed += g.sourceRows - 1;\n  out.push({\n    placement: g.placement,\n    urlKey: g.urlKey,\n    type: g.type,\n    network: g.network,\n    impressions: g.impressions,\n    campaignCount: campaigns.length,\n    campaigns,\n    sourceRows: g.sourceRows,\n  });\n}\n\nsummary.rows_out = out.length;\nsummary.unique_placements = out.length;\n\n// ── Validation (AG1–AG6) ──\n// AG1: Σ impressions conserved through aggregation\nif (summary.total_impressions_before !== summary.total_impressions_after) {\n  summary.hardError = true; // AG6\n  summary.aggregateWarnings.push(\n    `AG1/AG6 impression sum mismatch: before=${summary.total_impressions_before} after=${summary.total_impressions_after}`\n  );\n}\n// AG2: no duplicate urlKey\nconst keys = out.map((o) => o.urlKey);\nif (new Set(keys).size !== keys.length) {\n  summary.hardError = true;\n  summary.aggregateWarnings.push('AG2 duplicate urlKey in output');\n}\n// AG3 + AG4: per-record invariants\nfor (const o of out) {\n  if (o.campaignCount !== new Set(o.campaigns).size) {\n    summary.hardError = true;\n    summary.aggregateWarnings.push(`AG3 campaignCount mismatch for ${o.urlKey}`);\n  }\n  if (o.sourceRows < o.campaignCount) {\n    summary.hardError = true;\n    summary.aggregateWarnings.push(`AG4 sourceRows<campaignCount for ${o.urlKey}`);\n  }\n  if (o.impressions < 0) {\n    summary.hardError = true;\n    summary.aggregateWarnings.push(`negative impressions for ${o.urlKey}`);\n  }\n}\n// AG5: no output\nif (summary.rows_out === 0) {\n  summary.hardError = true;\n  summary.aggregateWarnings.push('AG5 rows_out == 0');\n}\n\n// n8n output: aggregated items + carried __summary; emit summary-only item if empty.\nif (out.length === 0) {\n  return [{ json: { __summary: summary } }];\n}\nreturn out.map((r) => ({ json: { ...r, __summary: summary } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -1744
+      ],
+      "id": "b5822df8-31c7-4d5f-831d-487a158ae7ed",
+      "name": "02_Aggregate"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1840,
+        -1968
+      ],
+      "id": "c2829ef7-5d7f-4d1e-b345-0cdc0fa0cfd8",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://script.google.com/macros/s/AKfycbwk6uC6rGuBU-ZRQJR36MD3vbFlCOLKDuqJgst-X4SYdenPZukVJ_CeB10vz7Opdq8kxg/exec",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "hellodigitweblanaka1213"
+            },
+            {
+              "name": "source",
+              "value": "n8n"
+            },
+            {
+              "name": "trigger",
+              "value": "weekly-run"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2096,
+        -1952
+      ],
+      "id": "a26b39ca-3284-4391-9455-39575c1928a6",
+      "name": "HTTP Request",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1984,
+        -1328
+      ],
+      "id": "f6ce4c3e-993d-43f4-925c-ee13a8918046",
+      "name": "Merge1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Placements": {
+      "main": [
+        [
+          {
+            "node": "01_Normalize ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "01_Normalize ": {
+      "main": [
+        [
+          {
+            "node": "02_Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03_Threshold": {
+      "main": [
+        [
+          {
+            "node": "04_Classify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04_Classify": {
+      "main": [
+        [
+          {
+            "node": "05_Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05_Validate": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ToExclude",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ToMonitor",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Keywords": {
+      "main": [
+        [
+          {
+            "node": "Read Placements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ToExclude": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "RunLog": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "RunLog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02_Aggregate": {
+      "main": [
+        [
+          {
+            "node": "03_Threshold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ToMonitor": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        []
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "1f01d594-7415-49ec-a766-1327a304b19f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "80b0590942b1866d418b5b88c83fd036cec904e5ac34048b721f6b3fc2751cee"
+  },
+  "nodeGroups": [],
+  "id": "S3LTKYGYA3Ml3cIu",
+  "tags": []
+}
