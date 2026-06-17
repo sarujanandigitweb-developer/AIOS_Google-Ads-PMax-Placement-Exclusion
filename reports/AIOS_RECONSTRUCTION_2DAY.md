@@ -43,7 +43,7 @@ AIOS_Google Ads PMax Placement Exclusion/
 ## C. Evidence checklist per day
 ### 2026-06-15
 - [x] Code: `01_normalize.js`, `04_classify.js`, `06_runlog_row.js`
-- [x] Apps Script: `build_output_tabs.gs`, `build_monitor_dashboard.gs`
+- [x] Apps Script: `build_output_tabs.gs`, `build_monitor_dashboard.gs` (removed / superseded by `dashboard.gs`)
 - [x] Reports: `UNRELATED_KEYWORDS_ANALYSIS.md`, `KEYWORD_RECONCILIATION_REPORT.md`
 - [x] Dashboard docs: `implementation/build/dashboard/*` (7 files)
 - [x] Commits: `c2cdd84`, `5e559c7`

@@ -44,7 +44,7 @@ assignment into the canonical numbered skill set.
 
 ## CAND-07 — Apps Script multi-file `onOpen()` collision
 **Rule:** an Apps Script *project* shares one global namespace; only **one** `onOpen()` may exist. Add menu items to the existing `onOpen()` rather than defining a second one in a new file. Namespace helper functions (`getSheet_` vs `sheet_`) to avoid duplicate-declaration errors.
-**Evidence:** 2026-06-16 deployment guidance; [build_monitor_dashboard.gs](../implementation/build/apps_script/build_monitor_dashboard.gs) (no `onOpen`, namespaced helpers).
+**Evidence:** 2026-06-16 deployment guidance; `build_monitor_dashboard.gs` (removed / superseded by `dashboard.gs`) — no `onOpen`, namespaced helpers.
 
 ---
 **Reviewer action:** approve each candidate for promotion into the canonical skill registry (assign permanent IDs), or reject with reason. Until approved, these remain CANDIDATE and are not authoritative.

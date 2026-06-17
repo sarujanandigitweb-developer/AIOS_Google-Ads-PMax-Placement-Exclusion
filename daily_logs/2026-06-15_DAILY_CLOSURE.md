@@ -27,7 +27,7 @@ basis: commits c2cdd84, 5e559c7 (both dated 2026-06-15); files on disk
 | 5 | Unrelated-keywords usage analysis (actively used; two engines) | [UNRELATED_KEYWORDS_ANALYSIS.md](../reports/UNRELATED_KEYWORDS_ANALYSIS.md) | `c2cdd84` |
 | 6 | Keyword reconciliation (D04 37 FR terms vs live 40 incl. EN `game`) | [KEYWORD_RECONCILIATION_REPORT.md](../reports/KEYWORD_RECONCILIATION_REPORT.md) | `5e559c7` |
 | 7 | MONITOR dashboard design (6 docs) + build spec | [dashboard/](../implementation/build/dashboard/) | `5e559c7` |
-| 8 | MONITOR dashboard Apps Script implementation | [build_monitor_dashboard.gs](../implementation/build/apps_script/build_monitor_dashboard.gs) | `5e559c7` |
+| 8 | MONITOR dashboard Apps Script implementation | `build_monitor_dashboard.gs` (removed / superseded by `dashboard.gs`) | `5e559c7` |
 
 ## Problems encountered (and resolution)
 1. **`Write ToExclude` — "Column to Match On' required".** Cause: Google Sheets node on **Append-or-Update**. Fix: use **Append Row** (+ Clear for ToExclude). *(Config guidance; no code change.)*

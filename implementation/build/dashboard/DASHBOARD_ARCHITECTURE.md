@@ -8,6 +8,9 @@ date: 2026-06-15
 constraint: read-only over existing outputs; D04 + classification untouched
 ---
 
+> ⚠ **Superseded — see [DASHBOARD_AS_BUILT.md](DASHBOARD_AS_BUILT.md).** Describes the earlier 3-tab dashboard design; kept for history only.
+
+
 # DASHBOARD_ARCHITECTURE.md
 
 ## STEP 1 — Existing workflow analysis (evidence)

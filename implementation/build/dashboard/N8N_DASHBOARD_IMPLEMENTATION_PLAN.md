@@ -6,6 +6,9 @@ author: sarujanan (Claude execution agent)
 date: 2026-06-15
 ---
 
+> ⚠ **Superseded — see [DASHBOARD_AS_BUILT.md](DASHBOARD_AS_BUILT.md).** Describes the earlier 3-tab dashboard design; kept for history only.
+
+
 # N8N_DASHBOARD_IMPLEMENTATION_PLAN.md
 
 ## STEP 6 — n8n implementation strategy

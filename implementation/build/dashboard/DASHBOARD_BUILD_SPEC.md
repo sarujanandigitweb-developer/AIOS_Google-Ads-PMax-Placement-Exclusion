@@ -10,6 +10,9 @@ decisions: OI-D1 n8n sole ToMonitor writer · OI-D2 Sheets only (no Looker) ·
 constraint: no D04 / classification / n8n-node change; new tabs only; backward compatible
 ---
 
+> ⚠ **Superseded — see [DASHBOARD_AS_BUILT.md](DASHBOARD_AS_BUILT.md).** Describes the earlier 3-tab dashboard design; kept for history only.
+
+
 # DASHBOARD_BUILD_SPEC.md
 
 ## Source tabs (read-only inputs — unchanged)

@@ -7,6 +7,9 @@ date: 2026-06-15
 brand: header colour #0b5394 (matches existing styleHeader_ in build_output_tabs.gs)
 ---
 
+> ⚠ **Superseded — see [DASHBOARD_AS_BUILT.md](DASHBOARD_AS_BUILT.md).** Describes the earlier 3-tab dashboard design; kept for history only.
+
+
 # GOOGLE_SHEETS_DASHBOARD_DESIGN.md
 
 ## STEP 5 — Dashboard components
