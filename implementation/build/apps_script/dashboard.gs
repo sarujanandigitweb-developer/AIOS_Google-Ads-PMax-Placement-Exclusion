@@ -134,6 +134,31 @@ function drawTable_(sh, topRow, startCol, columns, dataRows) {
   return { lastRow: topRow + nRows - 1, totalSpan: totalSpan, colStartOf: colStartOf };
 }
 
+// Insert a chart resiliently. Google's chart service intermittently throws
+// "An unknown error has occurred, please try again later." — retry with backoff,
+// and never let one flaky chart abort the whole dashboard build.
+function chartSafe_(sh, chart) {
+  for (var attempt = 0; attempt < 3; attempt++) {
+    try { sh.insertChart(chart); return true; }
+    catch (e) { Logger.log('chart insert attempt ' + (attempt + 1) + ' failed: ' + e); Utilities.sleep(900); }
+  }
+  Logger.log('chart insert permanently skipped (non-fatal)');
+  return false;
+}
+
+// Draw a bordered "panel" with a centered message in a chart's grid area, so a
+// missing/empty chart is never a blank white box. Used for degenerate-data and
+// chart-failure fallbacks.
+function fallbackPanel_(sh, topRow, leftCol, numRows, numCols, message) {
+  sh.getRange(topRow, leftCol, numRows, numCols).merge()
+    .setValue(message).setBackground(DB.PANEL).setFontColor(DB.MUTE).setFontSize(12)
+    .setVerticalAlignment('middle').setHorizontalAlignment('center').setWrap(true)
+    .setBorder(true, true, true, true, false, false, DB.LINE, SpreadsheetApp.BorderStyle.SOLID);
+}
+
+// Distinct-value count (used to detect constant/flat series that can't form a trend).
+function distinctCount_(arr) { var s = {}; for (var i = 0; i < arr.length; i++) s[String(arr[i])] = 1; return Object.keys(s).length; }
+
 // ── 0. Reset + canvas ───────────────────────────────────────────────────────
 function resetDashboard_() {
   var ss = dbSS_();
@@ -141,7 +166,10 @@ function resetDashboard_() {
   sh.getCharts().forEach(function (c) { sh.removeChart(c); });
   sh.getRange(1, 1, Math.max(sh.getMaxRows(), DB.LAST_ROW + 6), Math.max(sh.getMaxColumns(), DB.COLS)).breakApart();
   sh.setConditionalFormatRules([]);
-  sh.clear();
+  sh.clear(); // clears the whole sheet (content + formats), incl. off-screen helper cols
+  // Explicit safety net: wipe the off-screen chart-data zone (AB:AO) so stale
+  // chart source data can never corrupt a rebuild even if the layout shifts.
+  sh.getRange(1, 28, Math.max(sh.getMaxRows(), DB.LAST_ROW + 6), 14).clearContent();
   sh.setHiddenGridlines(true);
   for (var c = 1; c <= DB.COLS; c++) sh.setColumnWidth(c, DB.COLW);
   sh.getRange(1, 1, DB.LAST_ROW, DB.COLS).setBackground(DB.PAGE).setFontFamily(DB.FONT).setFontColor(DB.INK);
@@ -195,46 +223,77 @@ function buildKpis_(sh, ctx) {
 function buildTrends_(sh) {
   sectionHeader_(sh, 12, '📈  Performance Trends (per run)');
   var log = readTable_(DB.SRC_RUNLOG);
-  if (!log || !log.rows.length) { sh.getRange(14, 1).setValue('No RunLog data yet.').setFontColor(DB.MUTE); return; }
+  for (var rr = 13; rr <= 28; rr++) sh.setRowHeight(rr, 20);
+  if (!log || !log.rows.length) {
+    fallbackPanel_(sh, 13, 1, 15, 24, 'No RunLog data yet — run the workflow to populate trends.');
+    return;
+  }
   var iD = log.idx('run date', 'rundate'), iE = log.idx('exclude'), iM = log.idx('monitor'), iT = log.idx('threshold');
 
-  var block = [['Run', 'Exclusions', 'Monitor', 'Threshold']];
-  log.rows.forEach(function (r) { block.push([asText_(r[iD]), num_(r[iE]), num_(r[iM]), num_(r[iT])]); });
-  var n = block.length; // header + data rows
-  sh.getRange(13, 1, n, 4).setValues(block);
-  var domain = sh.getRange(13, 1, n, 1);
+  var dates = [], ex = [], mo = [], th = [];
+  log.rows.forEach(function (r) {
+    dates.push(asText_(r[iD])); ex.push(num_(r[iE])); mo.push(num_(r[iM])); th.push(num_(r[iT]));
+  });
+  var n = dates.length;
 
-  function line_(seriesOffset, title, color, anchorCol) {
-    sh.insertChart(sh.newChart().asLineChart()
-      .addRange(domain).addRange(sh.getRange(13, 1 + seriesOffset, n, 1)).setNumHeaders(1)
-      .setOption('title', title).setOption('titleTextStyle', { color: DB.INK, bold: true, fontSize: 13 })
-      .setOption('legend', { position: 'none' }).setOption('colors', [color]).setOption('curveType', 'function')
-      .setOption('backgroundColor', DB.PANEL).setOption('pointSize', 5).setOption('lineWidth', 3)
+  // One spec per trend chart. Each writes its OWN contiguous [Run, value] pair
+  // OFF-SCREEN (never collides with the A:Z layout); flush() commits before insert.
+  var specs = [
+    { col: 28, title: 'Exclusions Trend', color: DB.RED, series: ex, anchor: 1 },  // AB:AC
+    { col: 31, title: 'Monitor Trend', color: DB.ORANGE, series: mo, anchor: 10 }, // AE:AF
+    { col: 34, title: 'Threshold Trend', color: DB.BRAND, series: th, anchor: 19 }, // AH:AI
+  ];
+  specs.forEach(function (s) {
+    // A line chart needs >= 2 runs AND a series that actually varies; otherwise it
+    // renders blank. Show an honest message instead of an empty box.
+    if (n < 2 || distinctCount_(s.series) < 2) {
+      fallbackPanel_(sh, 13, s.anchor, 15, 8,
+        s.title + '\n\nNeed multiple runs with changing values to show a trend\n(' +
+        n + ' run' + (n === 1 ? '' : 's') + ', value constant)');
+      return;
+    }
+    var data = [['Run', s.title]];
+    for (var i = 0; i < n; i++) data.push([dates[i], s.series[i]]);
+    sh.getRange(1, s.col, n + 1, 2).setValues(data);
+    SpreadsheetApp.flush();
+    var ok = chartSafe_(sh, sh.newChart().asLineChart()
+      .addRange(sh.getRange(1, s.col, n + 1, 2)).setNumHeaders(1)
+      .setOption('title', s.title).setOption('titleTextStyle', { color: DB.INK, bold: true, fontSize: 13 })
+      .setOption('legend', { position: 'none' }).setOption('colors', [s.color]).setOption('lineWidth', 3)
+      .setOption('backgroundColor', DB.PANEL).setOption('pointSize', 5)
+      .setOption('vAxis', { viewWindow: { min: 0 }, format: '#,##0' })
       .setOption('hAxis', { slantedText: true, slantedTextAngle: 30, textStyle: { fontSize: 9 } })
-      .setOption('chartArea', { left: 50, top: 40, width: '84%', height: '60%' })
-      .setOption('width', 590).setOption('height', 320).setPosition(13, anchorCol, 4, 4).build());
-  }
-  line_(1, 'Exclusions Trend', DB.RED, 1);    // block col B
-  line_(2, 'Monitor Trend', DB.ORANGE, 10);   // block col C
-  line_(3, 'Threshold Trend', DB.BRAND, 19);  // block col D
-  for (var rr = 13; rr <= 28; rr++) sh.setRowHeight(rr, 20);
+      .setOption('chartArea', { left: 55, top: 40, width: '82%', height: '60%' })
+      .setOption('width', 590).setOption('height', 320).setPosition(13, s.anchor, 4, 4).build());
+    if (!ok) fallbackPanel_(sh, 13, s.anchor, 15, 8, s.title + '\n\nChart unavailable (service error) — see Executions log');
+  });
 }
 
 // ── 4. Risk analysis (rows 30-48) — donut (left) + top-15 monitor queue ─────
 function buildRiskAndQueue_(sh, ctx) {
   sectionHeader_(sh, 30, '⚠️  Risk Analysis');
 
-  // Risk counts data block (read by donut), placed under-left where the chart overlays it.
-  sh.getRange(32, 1, 1, 2).setValues([['Risk', 'Count']]).setFontColor(DB.MUTE).setFontWeight('bold');
-  sh.getRange(33, 1, 3, 2).setValues([['High', ctx.risk.High], ['Medium', ctx.risk.Medium], ['Low', ctx.risk.Low]]);
-  sh.insertChart(sh.newChart().asPieChart()
-    .addRange(sh.getRange('A33:B35')).setNumHeaders(0)
-    .setOption('title', 'Monitor Risk Split — ' + ctx.metrics.monitor + ' total')
-    .setOption('titleTextStyle', { color: DB.INK, bold: true, fontSize: 13 })
-    .setOption('colors', [DB.RED, DB.ORANGE, DB.GREEN]).setOption('pieHole', 0.55)
-    .setOption('backgroundColor', DB.PANEL).setOption('legend', { position: 'right' })
-    .setOption('chartArea', { left: 10, top: 40, width: '92%', height: '78%' })
-    .setOption('width', 560).setOption('height', 320).setPosition(31, 1, 4, 4).build());
+  // Risk Split — rendered with in-cell SPARKLINE bars (service-free, always renders).
+  // Replaces the embedded donut, which does not render in this Google account.
+  var totalRisk = ctx.risk.High + ctx.risk.Medium + ctx.risk.Low;
+  if (totalRisk <= 0) {
+    fallbackPanel_(sh, 31, 1, 14, 8, 'Monitor Risk Split\n\nNo risk data available');
+  } else {
+    sh.getRange(31, 1, 1, 8).merge().setValue('Monitor Risk Split — ' + ctx.metrics.monitor + ' total')
+      .setFontWeight('bold').setFontColor(DB.INK).setFontSize(12).setVerticalAlignment('middle');
+    var maxRisk = Math.max(ctx.risk.High, ctx.risk.Medium, ctx.risk.Low, 1);
+    var levels = [['High', ctx.risk.High, DB.RED], ['Medium', ctx.risk.Medium, DB.ORANGE], ['Low', ctx.risk.Low, DB.GREEN]];
+    for (var i = 0; i < levels.length; i++) {
+      var rrow = 33 + i * 2;
+      sh.getRange(rrow, 1).setValue(levels[i][0]).setFontWeight('bold').setFontColor(levels[i][2]).setVerticalAlignment('middle');
+      sh.getRange(rrow, 2, 1, 5).merge()
+        .setFormula('=SPARKLINE(' + levels[i][1] + ',{"charttype","bar";"max",' + maxRisk + ';"color1","' + levels[i][2] + '"})');
+      sh.getRange(rrow, 7).setValue(levels[i][1]).setFontWeight('bold').setFontColor(levels[i][2])
+        .setHorizontalAlignment('right').setVerticalAlignment('middle');
+    }
+    sh.getRange(31, 1, 9, 8)
+      .setBorder(true, true, true, true, false, false, DB.LINE, SpreadsheetApp.BorderStyle.SOLID);
+  }
 
   // Top-15 monitor queue (right, cols J:S).
   var cols = [
@@ -283,7 +342,7 @@ function buildExclusionInsights_(sh, ctx) {
     sh.getRange(53 + i, 15).setValue(kwData[i][1]).setNumberFormat('#,##0');
   }
   var kwLastRow = 52 + kwData.length;
-  sh.insertChart(sh.newChart().asBarChart()
+  chartSafe_(sh, sh.newChart().asBarChart()
     .addRange(sh.getRange(53, 12, kwData.length, 1)).addRange(sh.getRange(53, 15, kwData.length, 1))
     .setOption('title', 'Keyword Distribution (top ' + kwData.length + ')')
     .setOption('titleTextStyle', { color: DB.INK, bold: true, fontSize: 13 })
