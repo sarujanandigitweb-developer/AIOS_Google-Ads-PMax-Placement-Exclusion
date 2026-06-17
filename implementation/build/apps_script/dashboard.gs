@@ -59,7 +59,7 @@ function parseKeyword_(rt) { var m = String(rt).match(/kw:([^+]+)/); return m ? 
 function priorityOf_(ratio) { return ratio >= 0.8 ? 'High' : (ratio >= 0.5 ? 'Medium' : 'Low'); }
 function deltaNote_(cur, prev, suffix) {
   if (prev === null || prev === undefined || prev === '') return 'vs last run: —';
-  var d = cur - prev, arrow = d > 0 ? '▲' : (d < 0 ? '▼' : '�—');
+  var d = cur - prev, arrow = d > 0 ? '▲' : (d < 0 ? '▼' : '—');
   return arrow + ' ' + (d > 0 ? '+' : '') + fmt_(Math.round(d * 10) / 10) + (suffix || '') + ' vs last';
 }
 
