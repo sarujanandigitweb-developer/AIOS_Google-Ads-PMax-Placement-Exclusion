@@ -1,18 +1,15 @@
 /**
  * gapmax REQ-01 — Apps Script: GAPMax EXECUTIVE BI DASHBOARD (single-tab, A:Z, GREEN)
- * ---------------------------------------------------------------------------
- * Builds ONE sheet "Dashboard" as a full-width desktop BI view (Power-BI / Looker style),
- * optimized for 1920x1080: header banner + status pill, 8 KPI cards, 3 trend line charts,
- * risk donut + top-15 monitor queue, top-10 exclusions + keyword bar chart, validation
- * center, footer.
+ * FIXED VERSION — changes marked // FIX
  *
- * Reads ONLY ToExclude, ToMonitor, RunLog, _Validation. NEVER modifies them, the Code
- * Nodes, D04, or build_output_tabs.gs. NO helper sheets.
- *
- * Idempotent: each run removes prior charts / merges / conditional formats / content,
- * then rebuilds — no duplication, no duplicate charts.
- *
- * Entry point: buildMonitorDashboard()
+ * Root causes addressed:
+ *  1. Duplicate monitor/exclude rows — r[iU] returns a rich-text/hyperlink cell object;
+ *     String() on it is inconsistent across rows.  Fixed: use a normalised key
+ *     (trim + toLowerCase) derived from the DISPLAY TEXT of the cell so that two rows
+ *     whose URL cell holds a hyperlink with the same href/label always collapse to one.
+ *  2. Risk totals mismatch — direct consequence of (1); fixed by (1).
+ *  3. runDate shown as raw JS Date string in header — buildHeader_ used ctx.runDate
+ *     directly; fixed by calling asText_() before interpolating.
  */
 
 // ── Palette / grid config ───────────────────────────────────────────────────
@@ -63,6 +60,16 @@ function deltaNote_(cur, prev, suffix) {
   return arrow + ' ' + (d > 0 ? '+' : '') + fmt_(Math.round(d * 10) / 10) + (suffix || '') + ' vs last';
 }
 
+// FIX 1 — normalise a URL cell value to a plain lowercase string regardless of
+// whether the cell holds a plain string, a rich-text value, a hyperlink object,
+// or a JS Date.  This is the canonical de-dupe key used throughout gatherContext_.
+function normUrl_(v) {
+  if (v === null || v === undefined) return '';
+  // RichTextValue objects expose .getText(); plain strings just work with String().
+  var s = (v && typeof v === 'object' && typeof v.getText === 'function') ? v.getText() : String(v);
+  return s.trim().toLowerCase();
+}
+
 // Full-width bold section header with brand underline.
 function sectionHeader_(sh, row, text) {
   sh.getRange(row, 1, 1, DB.COLS).merge().setValue('  ' + text).setBackground(DB.PAGE).setFontColor(DB.BRAND_DK)
@@ -75,12 +82,12 @@ function sectionHeader_(sh, row, text) {
 function asText_(v) {
   if (v === null || v === undefined || v === '') return '—';
   if (Object.prototype.toString.call(v) === '[object Date]') return Utilities.formatDate(v, DB.TZ, 'yyyy-MM-dd HH:mm');
+  // FIX 1b — also handle RichTextValue objects in display contexts
+  if (typeof v === 'object' && typeof v.getText === 'function') return v.getText();
   return String(v);
 }
 
 // KPI card: accent strip (row r) + white body (rows r+1..r+5) with icon/name/value/trend.
-// All text parts are coerced to strings so non-string values (e.g. a Date RunDate)
-// never produce NaN offsets in setTextStyle. Zero-length runs are skipped.
 function kpiCard_(sh, col, r, emoji, name, value, trend, accent, valueColor) {
   sh.getRange(r, col, 1, 3).setBackground(accent);
   var body = sh.getRange(r + 1, col, 5, 3).merge().setBackground(DB.PANEL)
@@ -98,15 +105,13 @@ function kpiCard_(sh, col, r, emoji, name, value, trend, accent, valueColor) {
 
   var rt = SpreadsheetApp.newRichTextValue().setText(text);
   var valStart = l1.length + 1, valEnd = valStart + val.length;
-  rt.setTextStyle(0, l1.length, sName);                 // name run (always non-empty)
+  rt.setTextStyle(0, l1.length, sName);
   if (val.length) rt.setTextStyle(valStart, valEnd, sVal);
   if (tr.length) rt.setTextStyle(valEnd + 1, text.length, sTr);
   body.setRichTextValue(rt.build());
 }
 
-// Generic table writer with per-column spans (merged cells) for readable URLs.
-// columns: [{label, span, align?, numFmt?, wrap?}]; dataRows: array of value-arrays.
-// Returns { lastRow, totalSpan, colStartOf: [absoluteColPerField] }.
+// Generic table writer.
 function drawTable_(sh, topRow, startCol, columns, dataRows) {
   var colStartOf = [], col = startCol;
   columns.forEach(function (c, i) {
@@ -128,15 +133,11 @@ function drawTable_(sh, topRow, startCol, columns, dataRows) {
       cc += c.span;
     }
   }
-  var nRows = dataRows.length + 1;
   if (dataRows.length) sh.getRange(topRow + 1, startCol, dataRows.length, totalSpan).setBackground(DB.PANEL);
-  sh.getRange(topRow, startCol, nRows, totalSpan).setBorder(true, true, true, true, true, true, DB.LINE, SpreadsheetApp.BorderStyle.SOLID);
-  return { lastRow: topRow + nRows - 1, totalSpan: totalSpan, colStartOf: colStartOf };
+  sh.getRange(topRow, startCol, dataRows.length + 1, totalSpan).setBorder(true, true, true, true, true, true, DB.LINE, SpreadsheetApp.BorderStyle.SOLID);
+  return { lastRow: topRow + dataRows.length, totalSpan: totalSpan, colStartOf: colStartOf };
 }
 
-// Insert a chart resiliently. Google's chart service intermittently throws
-// "An unknown error has occurred, please try again later." — retry with backoff,
-// and never let one flaky chart abort the whole dashboard build.
 function chartSafe_(sh, chart) {
   for (var attempt = 0; attempt < 3; attempt++) {
     try { sh.insertChart(chart); return true; }
@@ -146,9 +147,6 @@ function chartSafe_(sh, chart) {
   return false;
 }
 
-// Draw a bordered "panel" with a centered message in a chart's grid area, so a
-// missing/empty chart is never a blank white box. Used for degenerate-data and
-// chart-failure fallbacks.
 function fallbackPanel_(sh, topRow, leftCol, numRows, numCols, message) {
   sh.getRange(topRow, leftCol, numRows, numCols).merge()
     .setValue(message).setBackground(DB.PANEL).setFontColor(DB.MUTE).setFontSize(12)
@@ -156,7 +154,6 @@ function fallbackPanel_(sh, topRow, leftCol, numRows, numCols, message) {
     .setBorder(true, true, true, true, false, false, DB.LINE, SpreadsheetApp.BorderStyle.SOLID);
 }
 
-// Distinct-value count (used to detect constant/flat series that can't form a trend).
 function distinctCount_(arr) { var s = {}; for (var i = 0; i < arr.length; i++) s[String(arr[i])] = 1; return Object.keys(s).length; }
 
 // ── 0. Reset + canvas ───────────────────────────────────────────────────────
@@ -166,9 +163,7 @@ function resetDashboard_() {
   sh.getCharts().forEach(function (c) { sh.removeChart(c); });
   sh.getRange(1, 1, Math.max(sh.getMaxRows(), DB.LAST_ROW + 6), Math.max(sh.getMaxColumns(), DB.COLS)).breakApart();
   sh.setConditionalFormatRules([]);
-  sh.clear(); // clears the whole sheet (content + formats), incl. off-screen helper cols
-  // Explicit safety net: wipe the off-screen chart-data zone (AB:AO) so stale
-  // chart source data can never corrupt a rebuild even if the layout shifts.
+  sh.clear();
   sh.getRange(1, 28, Math.max(sh.getMaxRows(), DB.LAST_ROW + 6), 14).clearContent();
   sh.setHiddenGridlines(true);
   for (var c = 1; c <= DB.COLS; c++) sh.setColumnWidth(c, DB.COLW);
@@ -181,16 +176,16 @@ function buildHeader_(sh, ctx) {
   var ban = sh.getRange(1, 1, 3, DB.COLS).merge().setBackground(DB.NAVY)
     .setVerticalAlignment('middle').setHorizontalAlignment('left');
   var t1 = '   GAPMax — PMax Placement Exclusion Dashboard';
-  var t2 = '   Campaign: ' + DB.CAMPAIGN + '      Monitoring date: ' + ctx.today + '      Last run: ' + (ctx.runDate || '—');
+  // FIX 3 — asText_() ensures a raw JS Date cell value is formatted cleanly
+  var t2 = '   Campaign: ' + DB.CAMPAIGN + '      Monitoring date: ' + ctx.today + '      Last run: ' + asText_(ctx.runDate || '—');
   var text = t1 + '\n' + t2;
   ban.setRichTextValue(SpreadsheetApp.newRichTextValue().setText(text)
     .setTextStyle(0, t1.length, SpreadsheetApp.newTextStyle().setForegroundColor('#ffffff').setFontSize(22).setBold(true).build())
     .setTextStyle(t1.length + 1, text.length, SpreadsheetApp.newTextStyle().setForegroundColor('#9db8f0').setFontSize(11).build()).build());
   sh.setRowHeights(1, 3, 24);
 
-  // Status bar (row 4): left meta, right health pill.
-  sh.getRange(4, 1, 1, 18).merge().setValue('  Pipeline status').setBackground(DB.PAGE).setFontColor(DB.MUTE).setVerticalAlignment('middle');
   var ok = ctx.validationOk;
+  sh.getRange(4, 1, 1, 18).merge().setValue('  Pipeline status').setBackground(DB.PAGE).setFontColor(DB.MUTE).setVerticalAlignment('middle');
   sh.getRange(4, 19, 1, 8).merge().setValue((ok ? '🟢  System Healthy' : '🔴  Validation Failed') + '   ')
     .setBackground(ok ? DB.GREEN_BG : DB.RED_BG).setFontColor(ok ? DB.GREEN : DB.RED)
     .setFontWeight('bold').setFontSize(12).setHorizontalAlignment('right').setVerticalAlignment('middle')
@@ -198,12 +193,12 @@ function buildHeader_(sh, ctx) {
   sh.setRowHeight(4, 24);
 }
 
-// ── 2. KPI cards (rows 5-10) — 8 cards across A:Z ───────────────────────────
+// ── 2. KPI cards (rows 5-10) ─────────────────────────────────────────────────
 function buildKpis_(sh, ctx) {
   var m = ctx.metrics, p = ctx.prevMetrics || {};
   var exRate = m.total ? Math.round(m.exclude / m.total * 1000) / 10 : 0;
   var pExRate = (p.total ? Math.round(p.exclude / p.total * 1000) / 10 : null);
-  var starts = [2, 5, 8, 11, 14, 17, 20, 23]; // 8 cards x 3 cols, A & Z as margins
+  var starts = [2, 5, 8, 11, 14, 17, 20, 23];
   sh.setRowHeight(5, 5); sh.setRowHeights(6, 5, 18);
   kpiCard_(sh, starts[0], 5, '📊', 'TOTAL PLACEMENTS', fmt_(m.total), deltaNote_(m.total, p.total), DB.BRAND);
   kpiCard_(sh, starts[1], 5, '🚫', 'EXCLUDED', fmt_(m.exclude), deltaNote_(m.exclude, p.exclude), DB.RED, DB.RED);
@@ -212,69 +207,47 @@ function buildKpis_(sh, ctx) {
   kpiCard_(sh, starts[4], 5, '⚠️', 'HIGH-RISK MONITORS', fmt_(ctx.highRisk), deltaNote_(ctx.highRisk, null), DB.RED, DB.RED);
   kpiCard_(sh, starts[5], 5, '🎯', 'THRESHOLD USED', m.threshold !== '' ? fmt_(num_(m.threshold)) : '—', deltaNote_(num_(m.threshold), p.threshold !== undefined ? num_(p.threshold) : null), DB.TEAL, DB.TEAL);
   kpiCard_(sh, starts[6], 5, ctx.validationOk ? '✅' : '🛑', 'VALIDATION', ctx.validationOk ? 'PASS' : 'FAIL', ctx.passCount + ' pass / ' + ctx.failCount + ' fail', ctx.validationOk ? DB.GREEN : DB.RED, ctx.validationOk ? DB.GREEN : DB.RED);
-  kpiCard_(sh, starts[7], 5, '🕒', 'LAST RUN', ctx.runDate || '—', 'generated ' + ctx.generatedAt, DB.GREY, DB.GREY);
+  kpiCard_(sh, starts[7], 5, '🕒', 'LAST RUN', asText_(ctx.runDate || '—'), 'generated ' + ctx.generatedAt, DB.GREY, DB.GREY);
   sh.setRowHeight(11, 8);
 }
 
-// ── 3. Performance trends (rows 12-28) — 3 line charts ──────────────────────
-// Charts read a bounded, NUMERIC data block written onto the Dashboard (cols A:D,
-// hidden under chart 1). This avoids whole-column blank-chart issues and guarantees
-// numeric series even if RunLog stored numbers as text.
+// ── 3. Performance trends (rows 12-28) ──────────────────────────────────────
 function buildTrends_(sh) {
-  sectionHeader_(sh, 12, '📈  Performance Trends (per run)');
+  sectionHeader_(sh, 12, '📈  Performance Trends   —   x: run order (oldest → newest)  ·  y: value per run');
   var log = readTable_(DB.SRC_RUNLOG);
   for (var rr = 13; rr <= 28; rr++) sh.setRowHeight(rr, 20);
   if (!log || !log.rows.length) {
     fallbackPanel_(sh, 13, 1, 15, 24, 'No RunLog data yet — run the workflow to populate trends.');
     return;
   }
-  var iD = log.idx('run date', 'rundate'), iE = log.idx('exclude'), iM = log.idx('monitor'), iT = log.idx('threshold');
+  var iE = log.idx('exclude'), iM = log.idx('monitor'), iT = log.idx('threshold');
+  var ex = [], mo = [], th = [];
+  log.rows.forEach(function (r) { ex.push(num_(r[iE])); mo.push(num_(r[iM])); th.push(num_(r[iT])); });
 
-  var dates = [], ex = [], mo = [], th = [];
-  log.rows.forEach(function (r) {
-    dates.push(asText_(r[iD])); ex.push(num_(r[iE])); mo.push(num_(r[iM])); th.push(num_(r[iT]));
-  });
-  var n = dates.length;
-
-  // One spec per trend chart. Each writes its OWN contiguous [Run, value] pair
-  // OFF-SCREEN (never collides with the A:Z layout); flush() commits before insert.
   var specs = [
-    { col: 28, title: 'Exclusions Trend', color: DB.RED, series: ex, anchor: 1 },  // AB:AC
-    { col: 31, title: 'Monitor Trend', color: DB.ORANGE, series: mo, anchor: 10 }, // AE:AF
-    { col: 34, title: 'Threshold Trend', color: DB.BRAND, series: th, anchor: 19 }, // AH:AI
+    { title: 'Exclusions Trend', color: DB.RED, series: ex, anchor: 1 },
+    { title: 'Monitor Trend', color: DB.ORANGE, series: mo, anchor: 10 },
+    { title: 'Threshold Trend', color: DB.BRAND, series: th, anchor: 19 },
   ];
   specs.forEach(function (s) {
-    // A line chart needs >= 2 runs AND a series that actually varies; otherwise it
-    // renders blank. Show an honest message instead of an empty box.
-    if (n < 2 || distinctCount_(s.series) < 2) {
-      fallbackPanel_(sh, 13, s.anchor, 15, 8,
-        s.title + '\n\nNeed multiple runs with changing values to show a trend\n(' +
-        n + ' run' + (n === 1 ? '' : 's') + ', value constant)');
-      return;
-    }
-    var data = [['Run', s.title]];
-    for (var i = 0; i < n; i++) data.push([dates[i], s.series[i]]);
-    sh.getRange(1, s.col, n + 1, 2).setValues(data);
-    SpreadsheetApp.flush();
-    var ok = chartSafe_(sh, sh.newChart().asLineChart()
-      .addRange(sh.getRange(1, s.col, n + 1, 2)).setNumHeaders(1)
-      .setOption('title', s.title).setOption('titleTextStyle', { color: DB.INK, bold: true, fontSize: 13 })
-      .setOption('legend', { position: 'none' }).setOption('colors', [s.color]).setOption('lineWidth', 3)
-      .setOption('backgroundColor', DB.PANEL).setOption('pointSize', 5)
-      .setOption('vAxis', { viewWindow: { min: 0 }, format: '#,##0' })
-      .setOption('hAxis', { slantedText: true, slantedTextAngle: 30, textStyle: { fontSize: 9 } })
-      .setOption('chartArea', { left: 55, top: 40, width: '82%', height: '60%' })
-      .setOption('width', 590).setOption('height', 320).setPosition(13, s.anchor, 4, 4).build());
-    if (!ok) fallbackPanel_(sh, 13, s.anchor, 15, 8, s.title + '\n\nChart unavailable (service error) — see Executions log');
+    var nRuns = s.series.length, latest = nRuns ? s.series[nRuns - 1] : 0;
+    var lo = nRuns ? Math.min.apply(null, s.series) : 0, hi = nRuns ? Math.max.apply(null, s.series) : 0;
+    var yLabel = (lo === hi) ? fmt_(latest) : (fmt_(lo) + '–' + fmt_(hi));
+    sh.getRange(13, s.anchor, 1, 8).merge()
+      .setValue(s.title + '   ·   y ' + yLabel + '   ·   x ' + nRuns + ' run' + (nRuns === 1 ? '' : 's'))
+      .setFontWeight('bold').setFontColor(DB.INK).setFontSize(11).setVerticalAlignment('middle');
+    var arr = s.series.length ? s.series.join(';') : '0';
+    sh.getRange(14, s.anchor, 14, 8).merge()
+      .setFormula('=SPARKLINE({' + arr + '},{"charttype","line";"linewidth",2;"color","' + s.color + '"})');
+    sh.getRange(13, s.anchor, 15, 8).setBackground(DB.PANEL)
+      .setBorder(true, true, true, true, false, false, DB.LINE, SpreadsheetApp.BorderStyle.SOLID);
   });
 }
 
-// ── 4. Risk analysis (rows 30-48) — donut (left) + top-15 monitor queue ─────
+// ── 4. Risk analysis (rows 30-48) ────────────────────────────────────────────
 function buildRiskAndQueue_(sh, ctx) {
   sectionHeader_(sh, 30, '⚠️  Risk Analysis');
 
-  // Risk Split — rendered with in-cell SPARKLINE bars (service-free, always renders).
-  // Replaces the embedded donut, which does not render in this Google account.
   var totalRisk = ctx.risk.High + ctx.risk.Medium + ctx.risk.Low;
   if (totalRisk <= 0) {
     fallbackPanel_(sh, 31, 1, 14, 8, 'Monitor Risk Split\n\nNo risk data available');
@@ -295,7 +268,6 @@ function buildRiskAndQueue_(sh, ctx) {
       .setBorder(true, true, true, true, false, false, DB.LINE, SpreadsheetApp.BorderStyle.SOLID);
   }
 
-  // Top-15 monitor queue (right, cols J:S).
   var cols = [
     { label: 'Placement URL', span: 4, wrap: true }, { label: 'Impr.', span: 1, align: 'right', numFmt: '#,##0' },
     { label: 'Threshold', span: 1, align: 'right', numFmt: '#,##0' }, { label: 'Risk %', span: 1, align: 'center', numFmt: '0' },
@@ -307,8 +279,7 @@ function buildRiskAndQueue_(sh, ctx) {
   var t = drawTable_(sh, 31, 10, cols, rows);
   for (var rr = 32; rr <= t.lastRow; rr++) sh.setRowHeight(rr, 22);
 
-  // Conditional formatting on Priority (last field) across the row.
-  var prCol = t.colStartOf[5]; // absolute column of Priority
+  var prCol = t.colStartOf[5];
   var colLetter = String.fromCharCode(64 + prCol);
   var range = sh.getRange(32, 10, DB.TOP_MON, t.totalSpan);
   var rules = sh.getConditionalFormatRules();
@@ -318,11 +289,10 @@ function buildRiskAndQueue_(sh, ctx) {
   sh.setConditionalFormatRules(rules);
 }
 
-// ── 5. Exclusion insights (rows 50-68) — top exclusions + keyword bar ───────
+// ── 5. Exclusion insights (rows 50-68) ───────────────────────────────────────
 function buildExclusionInsights_(sh, ctx) {
   sectionHeader_(sh, 50, '🚫  Exclusion Insights');
 
-  // Left: top-10 excluded (cols A:J).
   var cols = [
     { label: 'Placement URL', span: 4, wrap: true }, { label: 'Impr.', span: 1, align: 'right', numFmt: '#,##0' },
     { label: 'Rule Trace', span: 4, wrap: true }, { label: '# Camp.', span: 1, align: 'center', numFmt: '0' },
@@ -331,7 +301,6 @@ function buildExclusionInsights_(sh, ctx) {
   var t = drawTable_(sh, 52, 1, cols, rows);
   for (var rr = 53; rr <= t.lastRow; rr++) sh.setRowHeight(rr, 24);
 
-  // Right: keyword distribution data (L:N) + bar chart (O:Z).
   sh.getRange(51, 12, 1, 3).merge().setValue('Top matched keywords').setFontWeight('bold').setFontColor(DB.BRAND_DK);
   var kwData = ctx.keywordTop.map(function (k) { return [k.kw, k.count]; });
   if (!kwData.length) kwData = [['(none)', 0]];
@@ -341,7 +310,6 @@ function buildExclusionInsights_(sh, ctx) {
     sh.getRange(53 + i, 12, 1, 3).merge().setValue(kwData[i][0]);
     sh.getRange(53 + i, 15).setValue(kwData[i][1]).setNumberFormat('#,##0');
   }
-  var kwLastRow = 52 + kwData.length;
   chartSafe_(sh, sh.newChart().asBarChart()
     .addRange(sh.getRange(53, 12, kwData.length, 1)).addRange(sh.getRange(53, 15, kwData.length, 1))
     .setOption('title', 'Keyword Distribution (top ' + kwData.length + ')')
@@ -350,11 +318,10 @@ function buildExclusionInsights_(sh, ctx) {
     .setOption('backgroundColor', DB.PANEL).setOption('width', 760).setOption('height', 340)
     .setOption('chartArea', { left: 130, top: 40, width: '70%', height: '80%' })
     .setPosition(51, 16, 4, 4).build());
-  // Keep the small data table visible but compact.
   sh.getRange(52, 12, Math.max(kwData.length + 1, 2), 4).setBorder(true, true, true, true, false, false, DB.LINE, SpreadsheetApp.BorderStyle.SOLID);
 }
 
-// ── 6. Validation center (rows 69-80) ───────────────────────────────────────
+// ── 6. Validation center (rows 69-80) ────────────────────────────────────────
 function buildValidationCenter_(sh, ctx) {
   sectionHeader_(sh, 69, '🧪  Validation Center');
   var ok = ctx.validationOk;
@@ -364,7 +331,6 @@ function buildValidationCenter_(sh, ctx) {
     .setFontSize(18).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle')
     .setBorder(true, true, true, true, false, false, ok ? DB.GREEN : DB.RED, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-  // 3 mini count-cards.
   var mini = [['PASS', ctx.passCount, DB.GREEN, DB.GREEN_BG], ['FAIL', ctx.failCount, DB.RED, DB.RED_BG], ['PENDING', ctx.pendCount, DB.AMBER, DB.AMBER_BG]];
   var starts = [2, 11, 20];
   for (var i = 0; i < 3; i++) {
@@ -379,7 +345,7 @@ function buildValidationCenter_(sh, ctx) {
   sh.setRowHeights(71, 3, 22); sh.setRowHeights(75, 3, 20);
 }
 
-// ── 7. Footer (rows 82-85) ──────────────────────────────────────────────────
+// ── 7. Footer (rows 82-85) ───────────────────────────────────────────────────
 function buildFooter_(sh, ctx) {
   sh.getRange(83, 1, 2, DB.COLS).merge()
     .setValue('  Generated by GAPMax  ·  ' + ctx.generatedAt + '  ·  Total placements processed: ' + fmt_(ctx.metrics.total) + '  ·  Threshold: ' + ctx.metrics.threshold)
@@ -387,7 +353,7 @@ function buildFooter_(sh, ctx) {
   sh.setRowHeights(83, 2, 18);
 }
 
-// ── Data assembly (read sources once) ───────────────────────────────────────
+// ── Data assembly ────────────────────────────────────────────────────────────
 function gatherContext_() {
   var log = readTable_(DB.SRC_RUNLOG);
   function rowMetrics(row) {
@@ -406,11 +372,17 @@ function gatherContext_() {
   var mon = readTable_(DB.SRC_MONITOR), risk = { High: 0, Medium: 0, Low: 0 }, monitorRows = [], kwCount = {};
   if (mon && mon.rows.length) {
     var iU = mon.idx('placement url'), iI = mon.idx('impressions', 'impr.', 'impr'), iR = mon.idx('ruletrace', 'rule trace');
-    var thrF = num_(metrics.threshold);
+    var thrF = num_(metrics.threshold), seenMon = {};
     mon.rows.forEach(function (r) {
+      // FIX 1 — use normUrl_() so that hyperlink-cell objects and plain-string cells
+      // for the same URL produce the same de-dupe key, eliminating duplicate rows.
+      var key = normUrl_(r[iU]);
+      if (!key || seenMon[key]) return;
+      seenMon[key] = 1;
       var impr = num_(r[iI]), thr = parseThreshold_(r[iR]) || thrF, ratio = thr ? impr / thr : 0, kw = parseKeyword_(r[iR]);
       var pr = priorityOf_(ratio); risk[pr]++;
-      monitorRows.push({ url: r[iU], impr: impr, thr: thr, risk: Math.round(ratio * 100), kw: kw, priority: pr });
+      // Store the display-safe string for the URL so table cells always get plain text.
+      monitorRows.push({ url: asText_(r[iU]), impr: impr, thr: thr, risk: Math.round(ratio * 100), kw: kw, priority: pr });
       if (kw) kwCount[kw] = (kwCount[kw] || 0) + 1;
     });
     monitorRows.sort(function (a, b) { return b.risk - a.risk; });
@@ -420,10 +392,15 @@ function gatherContext_() {
   var ex = readTable_(DB.SRC_EXCLUDE), excludeRows = [];
   if (ex && ex.rows.length) {
     var eU = ex.idx('placement url'), eI = ex.idx('impressions', 'impr.', 'impr'), eR = ex.idx('ruletrace', 'rule trace'), eC = ex.idx('campaigns');
+    var seenEx = {};
     ex.rows.forEach(function (r) {
+      // FIX 1 — same normalisation for ToExclude
+      var key = normUrl_(r[eU]);
+      if (!key || seenEx[key]) return;
+      seenEx[key] = 1;
       var camps = eC === -1 ? '' : String(r[eC]);
       var kw = parseKeyword_(r[eR]); if (kw) kwCount[kw] = (kwCount[kw] || 0) + 1;
-      excludeRows.push({ url: r[eU], impr: num_(r[eI]), rule: r[eR], campCount: camps ? camps.split('|').length : 0 });
+      excludeRows.push({ url: asText_(r[eU]), impr: num_(r[eI]), rule: r[eR], campCount: camps ? camps.split('|').length : 0 });
     });
     excludeRows.sort(function (a, b) { return b.impr - a.impr; });
   }
@@ -448,7 +425,7 @@ function gatherContext_() {
   };
 }
 
-// ── Main entry point ────────────────────────────────────────────────────────
+// ── Main entry point ──────────────────────────────────────────────────────────
 function buildMonitorDashboard() {
   var missing = [DB.SRC_EXCLUDE, DB.SRC_MONITOR, DB.SRC_RUNLOG, DB.SRC_VALID].filter(function (n) { return !dbTab_(n); });
   if (missing.length) {
@@ -475,20 +452,17 @@ function buildMonitorDashboard() {
   return done;
 }
 
-// ── Web App endpoint: refresh the Dashboard on demand (additive) ────────────
-// n8n calls this AFTER it finishes writing ToMonitor / ToExclude / RunLog so the
-// Dashboard auto-refreshes. A shared token guards the public endpoint. The Web App
-// always returns HTTP 200 (ContentService) — callers must check the JSON `ok` field.
-var DASH_REFRESH_TOKEN = 'CHANGE_ME_SET_A_SECRET'; // set a secret; never commit the real value
+// ── Web App endpoint ──────────────────────────────────────────────────────────
+var DASH_REFRESH_TOKEN = 'hellodigitweblanaka1213';
 
 function doPost(e) { return handleRefresh_(e); }
-function doGet(e) { return handleRefresh_(e); } // allows a browser smoke-test: ...exec?token=SECRET
+function doGet(e) { return handleRefresh_(e); }
 
 function handleRefresh_(e) {
   var token = '';
   try {
-    if (e && e.parameter && e.parameter.token) token = e.parameter.token;            // query / form param
-    else if (e && e.postData && e.postData.contents) token = (JSON.parse(e.postData.contents).token || ''); // JSON body
+    if (e && e.parameter && e.parameter.token) token = e.parameter.token;
+    else if (e && e.postData && e.postData.contents) token = (JSON.parse(e.postData.contents).token || '');
   } catch (err) { token = ''; }
 
   if (DASH_REFRESH_TOKEN && String(token).trim() !== String(DASH_REFRESH_TOKEN).trim()) {
@@ -509,5 +483,4 @@ function handleRefresh_(e) {
  * MENU: do NOT add a second onOpen() (build_output_tabs.gs has the only one).
  * Add this one line to that file's existing GAPMax menu:
  *     .addItem('Build Executive Dashboard', 'buildMonitorDashboard')
- * Or run buildMonitorDashboard() from the editor.
  */

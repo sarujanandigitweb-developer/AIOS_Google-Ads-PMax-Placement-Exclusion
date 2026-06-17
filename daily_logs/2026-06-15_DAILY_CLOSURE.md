@@ -61,5 +61,13 @@ basis: commits c2cdd84, 5e559c7 (both dated 2026-06-15); files on disk
 2. File the missing screenshots + post-fix run JSON under `evidence/`.
 3. Reconcile D04 Rule 4 list against the live 40-term sheet.
 
+## Reusable Skills / Knowledge Captured
+- **n8n Google Sheets Header Row:** set **Header Row = 3 / First Data Row = 4** when a sheet has title rows; otherwise n8n keys on the title row → all rows `skipped_empty`.
+- **Read-Keywords-before-Classify dependency:** a node referenced via `$('Read Keywords')` must be **named exactly** and **execute upstream** (wire it before Read Placements).
+- **Append vs Append-or-Update:** use **Append Row** for writers — "Append or Update" requires a *Column to Match On* and breaks when headers change.
+- **`__validation`/`__summary` leakage:** never auto-map Sheets writers — they dump object fields as JSON blobs; map columns manually.
+- **Reduce-before-write:** collapse an N-item stream to one summary item (the `Build RunLog Row` reducer) before a single-row writer, else you get N rows.
+- **One writer per tab:** dual writers (Apps Script `clearContents()` + n8n cached columns) cause "Column names were updated after the node's setup".
+
 ## Final PASS/FAIL status
 **PASS WITH CONDITIONS** — all planned engineering delivered and committed; closure logged late and runtime evidence-filing incomplete.
