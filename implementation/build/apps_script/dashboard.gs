@@ -453,7 +453,7 @@ function buildMonitorDashboard() {
 }
 
 // ── Web App endpoint ──────────────────────────────────────────────────────────
-var DASH_REFRESH_TOKEN = 'CHANGE_ME_SET_A_SECRET';
+var DASH_REFRESH_TOKEN = 'NEW_RANDOM_TOKEN_HERE';
 
 function doPost(e) { return handleRefresh_(e); }
 function doGet(e) { return handleRefresh_(e); }
