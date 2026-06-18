@@ -10,6 +10,10 @@ related: [docs/D05_IMPLEMENTATION_PLAN.md, implementation/EXECUTION_PLAN.md]
 
 # Next Steps — `gapmax` REQ-01
 
+> **Historical planning document.**
+> Refer to [PROJECT_FINAL_CLOSURE.md](PROJECT_FINAL_CLOSURE.md) for current project status.
+> Steps 1–6 and 12 were completed and certified; only the RED production steps (7–11, OI-03) remain out of scope by design. Retained as the original planning record.
+
 ## Immediate (no approval needed — GREEN)
 1. Coordinator confirms identity/repo metadata (OD-3) and initialises GitHub (OI-04), then commit this scaffold.
 2. Business validator drafts the related-keyword safeguard list (OI-02) → update D04 Rule 5.

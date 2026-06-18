@@ -10,6 +10,10 @@ aios_skill: 10_SKILL_UNKNOWN_DEVELOPER_TEST
 
 # Continuation Guide — `gapmax` REQ-01
 
+> **Historical continuation guide.**
+> Current authoritative project status is documented in [PROJECT_FINAL_CLOSURE.md](PROJECT_FINAL_CLOSURE.md).
+> The pipeline was subsequently built, executed, and certified; the "nothing deployed" framing below reflects the 2026-06-11 planning state and is retained for history.
+
 > For an unknown developer/LLM picking this up tomorrow with no verbal context.
 
 ## In one paragraph
